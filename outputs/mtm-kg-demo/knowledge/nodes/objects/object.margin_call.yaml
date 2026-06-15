@@ -1,0 +1,25 @@
+id: object.margin_call
+type: object
+name: Margin Call
+description: Business object representing required margin generated from valuation and collateral data.
+
+properties:
+  - name: margin_call_id
+    description: Unique margin call identifier.
+    maps_to:
+      - column.margin.margin_calculation.margin_call_id
+  - name: margin_requirement
+    description: Required margin amount.
+    maps_to:
+      - column.margin.margin_calculation.margin_requirement
+
+related_nodes:
+  - id: object.mtm_valuation
+    relation: derived_from
+    description: Margin calls are derived from MTM valuations.
+  - id: object.booking_order
+    relation: creates
+    description: Eligible margin calls can create booking orders.
+  - id: table.margin.margin_calculation
+    relation: implemented_by
+    description: This table stores margin call calculation results.

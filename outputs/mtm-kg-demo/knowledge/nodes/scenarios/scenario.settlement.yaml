@@ -1,0 +1,38 @@
+id: scenario.settlement
+type: scenario
+name: Settlement
+description: Creates settlement instructions for undisputed booking orders.
+
+parent_scenario: scenario.margin_booking_settlement
+
+business_logic:
+  - name: Confirm undisputed booking
+    description: Settlement can proceed only when booking status is undisputed.
+  - name: Create settlement instruction
+    description: Generate settlement instructions from eligible booking orders.
+  - name: Monitor settlement operations
+    description: Serve booking and settlement status to operational dashboards.
+
+related_nodes:
+  - id: term.settlement
+    relation: uses_term
+    description: Settlement is the process of creating settlement instructions.
+  - id: term.undisputed
+    relation: uses_term
+    description: Undisputed status is required before settlement can proceed.
+  - id: object.booking_order
+    relation: consumes
+    description: Settlement depends on booking order status.
+  - id: object.settlement_instruction
+    relation: produces
+    description: Settlement produces settlement instructions.
+  - id: table.booking.booking_order
+    description: Source table for booking order status.
+  - id: table.settlement.settlement_instruction
+    description: Table stores settlement instructions.
+  - id: view.settlement.v_margin_settlement_summary
+    description: View combines settlement, booking, and margin status for serving.
+  - id: api.margin.get_margin_settlement_summary
+    description: API serves settlement summary data to consumers.
+  - id: dashboard.powerbi.margin_operations
+    description: Dashboard monitors booking and settlement status.

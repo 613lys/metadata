@@ -1,0 +1,37 @@
+id: table.collateral.collateral_balance
+type: table
+name: collateral_balance
+description: Stores available collateral balance by account and business date.
+
+schema: collateral
+
+columns:
+  - name: account_id
+    data_type: varchar
+    nullable: false
+  - name: available_collateral
+    data_type: decimal
+    nullable: false
+  - name: business_date
+    data_type: date
+    nullable: false
+
+primary_key:
+  - account_id
+  - business_date
+
+related_nodes:
+  - id: scenario.margin_calculation
+    description: Collateral balance is used in margin calculation.
+
+quality_checks:
+  - name: Available Collateral Non Negative
+    check_type: range
+    fields:
+      - available_collateral
+    expectation: available_collateral >= 0
+    validates:
+      - id: scenario.margin_calculation
+        description: Margin calculation depends on valid collateral inputs.
+      - id: term.margin
+        description: Available collateral contributes to margin requirement calculation.

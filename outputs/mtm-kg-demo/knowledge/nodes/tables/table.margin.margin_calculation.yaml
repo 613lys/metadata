@@ -1,0 +1,49 @@
+id: table.margin.margin_calculation
+type: table
+name: margin_calculation
+description: Stores calculated margin requirement and booking eligibility.
+
+schema: margin
+
+columns:
+  - name: margin_call_id
+    data_type: varchar
+    nullable: false
+  - name: valuation_id
+    data_type: varchar
+    nullable: false
+  - name: margin_requirement
+    data_type: decimal
+    nullable: false
+    description: Required margin amount calculated from MTM valuation and collateral.
+    related_nodes:
+      - id: term.margin
+        description: This column stores the calculated margin requirement.
+      - id: object.margin_call.margin_requirement
+        description: This column maps to the margin requirement property.
+  - name: booking_eligible
+    data_type: boolean
+    nullable: false
+
+primary_key:
+  - margin_call_id
+
+related_nodes:
+  - id: object.margin_call
+    description: This table stores margin call calculation results.
+  - id: scenario.margin_calculation
+    description: This table supports margin calculation.
+
+quality_checks:
+  - name: Margin Requirement Non Negative
+    check_type: range
+    fields:
+      - margin_requirement
+    expectation: margin_requirement >= 0
+    validates:
+      - id: term.margin
+        description: Margin requirement should not be negative.
+      - id: object.margin_call
+        description: Margin call records require a valid required margin amount.
+      - id: scenario.margin_calculation
+        description: Margin calculation output must satisfy this rule.

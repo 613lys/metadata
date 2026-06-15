@@ -1,0 +1,29 @@
+id: object.mtm_valuation
+type: object
+name: MTM Valuation
+description: Business object representing a mark-to-market valuation record for a position.
+
+properties:
+  - name: valuation_id
+    description: Unique valuation identifier.
+    maps_to:
+      - column.risk.mtm_valuation.valuation_id
+  - name: mtm_value
+    description: Current market value of the position.
+    maps_to:
+      - column.risk.mtm_valuation.mtm_value
+  - name: valuation_date
+    description: Date the valuation is effective.
+    maps_to:
+      - column.risk.mtm_valuation.valuation_date
+
+related_nodes:
+  - id: object.position
+    relation: values
+    description: MTM valuation values a position.
+  - id: term.mtm
+    relation: defined_by
+    description: MTM defines the valuation meaning.
+  - id: table.risk.mtm_valuation
+    relation: implemented_by
+    description: This table stores MTM valuation records.

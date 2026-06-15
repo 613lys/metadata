@@ -1,0 +1,18 @@
+id: object.position
+type: object
+name: Position
+description: Business object representing a trading or collateral position that can be valued.
+
+properties:
+  - name: position_id
+    description: Unique position identifier.
+    maps_to:
+      - column.risk.mtm_valuation.position_id
+
+related_nodes:
+  - id: object.mtm_valuation
+    relation: valued_by
+    description: Positions are valued by MTM valuation records.
+  - id: scenario.mtm_valuation
+    relation: involved_in
+    description: Positions are the primary subject of MTM valuation.

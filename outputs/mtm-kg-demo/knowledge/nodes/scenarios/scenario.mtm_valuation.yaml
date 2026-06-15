@@ -1,0 +1,29 @@
+id: scenario.mtm_valuation
+type: scenario
+name: MTM Valuation
+description: Values positions using mark-to-market inputs and produces valuation records.
+
+parent_scenario: scenario.margin_booking_settlement
+
+business_logic:
+  - name: Ingest counterparty MTM
+    description: Receive daily counterparty valuation inputs.
+  - name: Normalize valuation records
+    description: Convert feed rows into governed MTM valuation records by position and date.
+
+related_nodes:
+  - id: term.mtm
+    relation: uses_term
+    description: MTM is the core valuation concept in this scenario.
+  - id: object.position
+    relation: values
+    description: Positions are valued during MTM valuation.
+  - id: object.mtm_valuation
+    relation: produces
+    description: MTM valuation records are produced for positions.
+  - id: feedfile.s3.counterparty_mtm_feed
+    description: External MTM feed provides input valuation values.
+  - id: pipeline.airflow.daily_mtm_valuation
+    description: Pipeline loads and normalizes MTM valuation data.
+  - id: table.risk.mtm_valuation
+    description: Table stores normalized MTM valuation records.

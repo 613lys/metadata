@@ -1,0 +1,29 @@
+id: scenario.booking
+type: scenario
+name: Booking
+description: Creates booking orders from margin calls after calculation.
+
+parent_scenario: scenario.margin_booking_settlement
+
+business_logic:
+  - name: Select eligible margin calls
+    description: Identify calculated margin calls that are eligible for booking.
+  - name: Create booking order
+    description: Convert an eligible margin call into a booking order.
+
+related_nodes:
+  - id: term.booking
+    relation: uses_term
+    description: Booking is the business action of creating a booking order.
+  - id: object.margin_call
+    relation: consumes
+    description: Booking starts from an eligible margin call.
+  - id: object.booking_order
+    relation: produces
+    description: Booking produces booking orders.
+  - id: table.margin.margin_calculation
+    description: Source table for eligible booking candidates.
+  - id: api.margin.get_margin_booking_candidates
+    description: API serves booking candidates from margin calculation.
+  - id: table.booking.booking_order
+    description: Table stores booking orders.

@@ -1,0 +1,25 @@
+id: object.settlement_instruction
+type: object
+name: Settlement Instruction
+description: Business object representing a settlement instruction created for an undisputed booking.
+
+properties:
+  - name: settlement_id
+    description: Unique settlement instruction identifier.
+    maps_to:
+      - column.settlement.settlement_instruction.settlement_id
+  - name: settlement_amount
+    description: Amount to settle.
+    maps_to:
+      - column.settlement.settlement_instruction.settlement_amount
+
+related_nodes:
+  - id: object.booking_order
+    relation: created_from
+    description: Settlement instruction is created from an undisputed booking order.
+  - id: table.settlement.settlement_instruction
+    relation: implemented_by
+    description: This table stores settlement instructions.
+  - id: scenario.settlement
+    relation: produced_by
+    description: This object is produced in the settlement scenario.

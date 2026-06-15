@@ -1,0 +1,47 @@
+id: api.margin.get_margin_settlement_summary
+type: api
+name: GET /margin/settlement-summary
+description: Returns margin, booking, and settlement status for operational dashboards.
+
+parameters:
+  - name: business_date
+    data_type: date
+    required: true
+    description: Business date for summary data.
+
+returns:
+  - name: margin_call_id
+    data_type: string
+    description: Margin call identifier.
+    lineage:
+      - source: column.settlement.v_margin_settlement_summary.margin_call_id
+        description: Returned from summary view.
+  - name: dispute_status
+    data_type: string
+    description: Booking dispute status.
+    lineage:
+      - source: column.settlement.v_margin_settlement_summary.dispute_status
+        description: Returned from summary view.
+  - name: settlement_status
+    data_type: string
+    description: Settlement instruction status.
+    lineage:
+      - source: column.settlement.v_margin_settlement_summary.settlement_status
+        description: Returned from summary view.
+
+logic:
+  description: Reads the settlement summary view and filters by business date in service code.
+
+related_nodes:
+  - id: scenario.margin_booking_settlement
+    description: API serves dashboard data for the parent scenario.
+
+lineage:
+  upstream:
+    - id: view.settlement.v_margin_settlement_summary
+      relation: reads
+      description: API reads the margin settlement summary view.
+  downstream:
+    - id: dashboard.powerbi.margin_operations
+      relation: serves
+      description: Dashboard calls this API for operational monitoring.

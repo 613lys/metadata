@@ -1,0 +1,37 @@
+id: pipeline.airflow.margin_calculation_job
+type: pipeline
+name: margin_calculation_job
+description: Calculates margin requirement from MTM valuation and collateral balance.
+
+platform: airflow
+schedule: "0 3 * * *"
+code_refs:
+  - dags/margin_calculation.py
+  - jobs/margin_calculation.sql
+
+related_nodes:
+  - id: scenario.margin_calculation
+    description: Pipeline implements the margin calculation scenario.
+
+lineage:
+  upstream:
+    - id: table.risk.mtm_valuation
+      relation: reads
+      description: Pipeline consumes MTM valuation records.
+    - id: table.collateral.collateral_balance
+      relation: reads
+      description: Pipeline consumes collateral balance.
+  downstream:
+    - id: table.margin.margin_calculation
+      relation: writes
+      description: Pipeline produces margin calculation records.
+
+quality_checks:
+  - name: Margin Calculation Pipeline Success
+    check_type: pipeline_success
+    expectation: last run succeeded
+    validates:
+      - id: scenario.margin_calculation
+        description: Margin calculation depends on this pipeline completing successfully.
+      - id: object.margin_call
+        description: The pipeline produces margin call calculation results.

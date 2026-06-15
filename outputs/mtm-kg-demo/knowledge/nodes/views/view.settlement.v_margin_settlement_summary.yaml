@@ -1,0 +1,62 @@
+id: view.settlement.v_margin_settlement_summary
+type: view
+name: v_margin_settlement_summary
+description: View combining margin calculation, booking order, and settlement instruction status.
+
+schema: settlement
+definition: Combines margin calls with booking and settlement status for operational monitoring.
+sql: |
+  select
+    mc.margin_call_id,
+    mc.margin_requirement,
+    bo.booking_id,
+    bo.dispute_status,
+    si.settlement_status
+  from margin.margin_calculation mc
+  left join booking.booking_order bo
+    on mc.margin_call_id = bo.margin_call_id
+  left join settlement.settlement_instruction si
+    on bo.booking_id = si.booking_id
+
+columns:
+  - name: margin_call_id
+    data_type: varchar
+    lineage:
+      - source: column.margin.margin_calculation.margin_call_id
+        description: Directly selected from margin_calculation.margin_call_id.
+  - name: margin_requirement
+    data_type: decimal
+    lineage:
+      - source: column.margin.margin_calculation.margin_requirement
+        description: Directly selected from margin_calculation.margin_requirement.
+  - name: booking_id
+    data_type: varchar
+    lineage:
+      - source: column.booking.booking_order.booking_id
+        description: Joined from booking_order by margin_call_id.
+  - name: dispute_status
+    data_type: varchar
+    lineage:
+      - source: column.booking.booking_order.dispute_status
+        description: Joined from booking_order by margin_call_id.
+  - name: settlement_status
+    data_type: varchar
+    lineage:
+      - source: column.settlement.settlement_instruction.settlement_status
+        description: Joined from settlement_instruction by booking_id.
+
+related_nodes:
+  - id: scenario.margin_booking_settlement
+    description: This view summarizes the parent margin booking settlement scenario.
+
+lineage:
+  upstream:
+    - id: table.margin.margin_calculation
+      relation: reads
+      description: View reads margin calculation results.
+    - id: table.booking.booking_order
+      relation: reads
+      description: View reads booking status.
+    - id: table.settlement.settlement_instruction
+      relation: reads
+      description: View reads settlement status.

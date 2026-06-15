@@ -1,0 +1,22 @@
+id: term.mtm
+type: term
+name: MTM
+description: Business term for mark-to-market valuation.
+definition: Mark-to-market valuation estimates the current value of a position using market inputs.
+aliases:
+  - mark-to-market
+  - Mark to Market
+  - MTM Value
+
+related_nodes:
+  - id: term.valuation
+    relation: specializes
+    description: MTM is a specific type of valuation.
+  - id: object.mtm_valuation
+    relation: defines
+    description: MTM Valuation is the business object that records this valuation.
+  - id: column.risk.mtm_valuation.mtm_value
+    description: This column stores the MTM value used by margin calculation.
+  - id: scenario.mtm_valuation
+    relation: explains
+    description: This scenario defines how MTM values are loaded and normalized.

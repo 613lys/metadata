@@ -1,0 +1,49 @@
+id: table.booking.booking_order
+type: table
+name: booking_order
+description: Stores booking orders created from eligible margin calls.
+
+schema: booking
+
+columns:
+  - name: booking_id
+    data_type: varchar
+    nullable: false
+  - name: margin_call_id
+    data_type: varchar
+    nullable: false
+  - name: booking_amount
+    data_type: decimal
+    nullable: false
+  - name: dispute_status
+    data_type: varchar
+    nullable: false
+    description: Indicates whether booking is disputed or undisputed.
+    related_nodes:
+      - id: term.undisputed
+        description: Undisputed status allows settlement to proceed.
+      - id: object.booking_order.dispute_status
+        description: This column maps to booking order dispute status.
+
+primary_key:
+  - booking_id
+
+related_nodes:
+  - id: object.booking_order
+    description: This table stores booking orders.
+  - id: scenario.booking
+    description: This table supports booking.
+
+quality_checks:
+  - name: Disputed Booking Must Not Be Settled
+    check_type: conditional_expression
+    fields:
+      - dispute_status
+    expectation: settlement can proceed only when dispute_status == "undisputed"
+    validates:
+      - id: object.booking_order
+        description: Booking order status must control whether settlement can proceed.
+      - id: term.undisputed
+        description: The undisputed status is required before settlement.
+      - id: scenario.settlement
+        description: Settlement should only process undisputed bookings.

@@ -1,0 +1,352 @@
+[
+  {
+    "id": "api.margin.get_margin_booking_candidates",
+    "type": "api",
+    "text": "api.margin.get_margin_booking_candidates GET /margin/booking-candidates Returns eligible margin calls for booking users. scenario.booking API serves candidates for the booking scenario. object.margin_call API returns eligible margin calls. Candidate API Requires Business Date required_parameters scenario.booking Booking candidate selection must be scoped to a business date. object.margin_call The API returns eligible margin calls for booking."
+  },
+  {
+    "id": "api.margin.get_margin_settlement_summary",
+    "type": "api",
+    "text": "api.margin.get_margin_settlement_summary GET /margin/settlement-summary Returns margin, booking, and settlement status for operational dashboards. scenario.margin_booking_settlement API serves dashboard data for the parent scenario."
+  },
+  {
+    "id": "column.risk.mtm_valuation.mtm_value",
+    "type": "column",
+    "text": "column.risk.mtm_valuation.mtm_value mtm_value MTM value used as an input to margin calculation. term.mtm This column stores the MTM amount. object.mtm_valuation.mtm_value This column maps to the MTM valuation value property. scenario.margin_calculation Margin calculation uses this column as an input. MTM Value Not Null not_null term.mtm MTM value must exist for the MTM concept to be usable. object.mtm_valuation MTM valuation records require a valuation amount. scenario.margin_calculation Margin calculation depends on this MTM value input."
+  },
+  {
+    "id": "dashboard.powerbi.margin_operations",
+    "type": "dashboard",
+    "text": "dashboard.powerbi.margin_operations Margin Operations Dashboard for monitoring margin calls, booking dispute status, and settlement status. scenario.margin_booking_settlement Dashboard monitors the parent margin booking settlement scenario. scenario.settlement Dashboard shows settlement status."
+  },
+  {
+    "id": "feedfile.s3.counterparty_mtm_feed",
+    "type": "feedfile",
+    "text": "feedfile.s3.counterparty_mtm_feed counterparty_mtm_feed.csv Daily counterparty-provided MTM feed. scenario.mtm_valuation Feed provides input data for MTM valuation. Counterparty MTM Feed Freshness freshness received within 24 hours scenario.mtm_valuation Fresh MTM feed data is required for daily MTM valuation. term.mtm The check protects the timeliness of MTM values."
+  },
+  {
+    "id": "object.booking_order",
+    "type": "object",
+    "text": "object.booking_order Booking Order Business object representing a booking created from an eligible margin call. object.margin_call created_from A booking order is created from a margin call. object.settlement_instruction creates_when_undisputed An undisputed booking order can lead to a settlement instruction. table.booking.booking_order implemented_by This table stores booking orders. api.margin.get_margin_booking_candidates served_by This API exposes candidates for booking."
+  },
+  {
+    "id": "object.margin_call",
+    "type": "object",
+    "text": "object.margin_call Margin Call Business object representing required margin generated from valuation and collateral data. object.mtm_valuation derived_from Margin calls are derived from MTM valuations. object.booking_order creates Eligible margin calls can create booking orders. table.margin.margin_calculation implemented_by This table stores margin call calculation results."
+  },
+  {
+    "id": "object.mtm_valuation",
+    "type": "object",
+    "text": "object.mtm_valuation MTM Valuation Business object representing a mark-to-market valuation record for a position. object.position values MTM valuation values a position. term.mtm defined_by MTM defines the valuation meaning. table.risk.mtm_valuation implemented_by This table stores MTM valuation records."
+  },
+  {
+    "id": "object.position",
+    "type": "object",
+    "text": "object.position Position Business object representing a trading or collateral position that can be valued. object.mtm_valuation valued_by Positions are valued by MTM valuation records. scenario.mtm_valuation involved_in Positions are the primary subject of MTM valuation."
+  },
+  {
+    "id": "object.settlement_instruction",
+    "type": "object",
+    "text": "object.settlement_instruction Settlement Instruction Business object representing a settlement instruction created for an undisputed booking. object.booking_order created_from Settlement instruction is created from an undisputed booking order. table.settlement.settlement_instruction implemented_by This table stores settlement instructions. scenario.settlement produced_by This object is produced in the settlement scenario."
+  },
+  {
+    "id": "pipeline.airflow.daily_mtm_valuation",
+    "type": "pipeline",
+    "text": "pipeline.airflow.daily_mtm_valuation daily_mtm_valuation Loads counterparty MTM feed and produces normalized MTM valuation records. scenario.mtm_valuation Pipeline implements the MTM valuation scenario. Daily MTM Valuation Pipeline Success pipeline_success last run succeeded scenario.mtm_valuation The valuation scenario depends on this pipeline completing successfully. object.mtm_valuation The pipeline produces MTM valuation records."
+  },
+  {
+    "id": "pipeline.airflow.margin_calculation_job",
+    "type": "pipeline",
+    "text": "pipeline.airflow.margin_calculation_job margin_calculation_job Calculates margin requirement from MTM valuation and collateral balance. scenario.margin_calculation Pipeline implements the margin calculation scenario. Margin Calculation Pipeline Success pipeline_success last run succeeded scenario.margin_calculation Margin calculation depends on this pipeline completing successfully. object.margin_call The pipeline produces margin call calculation results."
+  },
+  {
+    "id": "scenario.booking",
+    "type": "scenario",
+    "text": "scenario.booking Booking Creates booking orders from margin calls after calculation. Select eligible margin calls Identify calculated margin calls that are eligible for booking. Create booking order Convert an eligible margin call into a booking order. term.booking uses_term Booking is the business action of creating a booking order. object.margin_call consumes Booking starts from an eligible margin call. object.booking_order produces Booking produces booking orders. table.margin.margin_calculation Source table for eligible booking candidates. api.margin.get_margin_booking_candidates API serves booking candidates from margin calculation. table.booking.booking_order Table stores booking orders."
+  },
+  {
+    "id": "scenario.margin_booking_settlement",
+    "type": "scenario",
+    "text": "scenario.margin_booking_settlement Margin Booking Settlement Parent business scenario covering MTM valuation, margin calculation, booking, dispute handling, and settlement. Orchestrate margin lifecycle Connect valuation, margin calculation, booking, and settlement into one operating flow. Preserve scenario handoffs Each child scenario produces the business context needed by the next scenario. term.mtm MTM is the valuation concept used by this flow. term.margin Margin is calculated from valuation and collateral context. object.margin_call Margin calls are produced by margin calculation. object.booking_order Booking orders are created from margin calls. object.settlement_instruction Settlement instructions are created for undisputed bookings."
+  },
+  {
+    "id": "scenario.margin_calculation",
+    "type": "scenario",
+    "text": "scenario.margin_calculation Margin Calculation Calculates required margin from MTM valuation and collateral balance. Read valuation and collateral Use MTM valuation and collateral balance as calculation inputs. Calculate required margin Produce the required margin amount for each margin call. Determine booking eligibility Mark calculated margin calls that can proceed to booking. term.margin uses_term Margin is the primary calculation output. term.mtm uses_term MTM valuation is an input to margin calculation. object.margin_call produces Margin calculation produces margin calls. table.risk.mtm_valuation Source table for MTM values. table.collateral.collateral_balance Source table for available collateral. table.margin.margin_calculation Output table for margin calculation results. pipeline.airflow.margin_calculation_job Pipeline that computes margin."
+  },
+  {
+    "id": "scenario.mtm_valuation",
+    "type": "scenario",
+    "text": "scenario.mtm_valuation MTM Valuation Values positions using mark-to-market inputs and produces valuation records. Ingest counterparty MTM Receive daily counterparty valuation inputs. Normalize valuation records Convert feed rows into governed MTM valuation records by position and date. term.mtm uses_term MTM is the core valuation concept in this scenario. object.position values Positions are valued during MTM valuation. object.mtm_valuation produces MTM valuation records are produced for positions. feedfile.s3.counterparty_mtm_feed External MTM feed provides input valuation values. pipeline.airflow.daily_mtm_valuation Pipeline loads and normalizes MTM valuation data. table.risk.mtm_valuation Table stores normalized MTM valuation records."
+  },
+  {
+    "id": "scenario.settlement",
+    "type": "scenario",
+    "text": "scenario.settlement Settlement Creates settlement instructions for undisputed booking orders. Confirm undisputed booking Settlement can proceed only when booking status is undisputed. Create settlement instruction Generate settlement instructions from eligible booking orders. Monitor settlement operations Serve booking and settlement status to operational dashboards. term.settlement uses_term Settlement is the process of creating settlement instructions. term.undisputed uses_term Undisputed status is required before settlement can proceed. object.booking_order consumes Settlement depends on booking order status. object.settlement_instruction produces Settlement produces settlement instructions. table.booking.booking_order Source table for booking order status. table.settlement.settlement_instruction Table stores settlement instructions. view.settlement.v_margin_settlement_summary View combines settlement, booking, and margin status for serving. api.margin.get_margin_settlement_summary API serves settlement summary data to consumers. dashboard.powerbi.margin_operations Dashboard monitors booking and settlement status."
+  },
+  {
+    "id": "table.booking.booking_order",
+    "type": "table",
+    "text": "table.booking.booking_order booking_order Stores booking orders created from eligible margin calls. object.booking_order This table stores booking orders. scenario.booking This table supports booking. Disputed Booking Must Not Be Settled conditional_expression settlement can proceed only when dispute_status == \"undisputed\" object.booking_order Booking order status must control whether settlement can proceed. term.undisputed The undisputed status is required before settlement. scenario.settlement Settlement should only process undisputed bookings."
+  },
+  {
+    "id": "table.collateral.collateral_balance",
+    "type": "table",
+    "text": "table.collateral.collateral_balance collateral_balance Stores available collateral balance by account and business date. scenario.margin_calculation Collateral balance is used in margin calculation. Available Collateral Non Negative range available_collateral >= 0 scenario.margin_calculation Margin calculation depends on valid collateral inputs. term.margin Available collateral contributes to margin requirement calculation."
+  },
+  {
+    "id": "table.margin.margin_calculation",
+    "type": "table",
+    "text": "table.margin.margin_calculation margin_calculation Stores calculated margin requirement and booking eligibility. object.margin_call This table stores margin call calculation results. scenario.margin_calculation This table supports margin calculation. Margin Requirement Non Negative range margin_requirement >= 0 term.margin Margin requirement should not be negative. object.margin_call Margin call records require a valid required margin amount. scenario.margin_calculation Margin calculation output must satisfy this rule."
+  },
+  {
+    "id": "table.risk.mtm_valuation",
+    "type": "table",
+    "text": "table.risk.mtm_valuation mtm_valuation Stores normalized MTM valuation records by position and valuation date. object.mtm_valuation This table stores MTM valuation records. scenario.mtm_valuation This table supports MTM valuation. MTM Value Not Null not_null term.mtm MTM values must be present for valuation meaning. object.mtm_valuation MTM valuation records require a valuation amount. Valuation Date Not Null not_null scenario.mtm_valuation Valuation records must be tied to a valuation date. object.mtm_valuation MTM valuation records require the valuation date."
+  },
+  {
+    "id": "table.settlement.settlement_instruction",
+    "type": "table",
+    "text": "table.settlement.settlement_instruction settlement_instruction Stores settlement instructions created for undisputed booking orders. object.settlement_instruction This table stores settlement instructions. scenario.settlement This table supports settlement. Settlement Amount Non Negative range settlement_amount >= 0 term.settlement Settlement amounts should be valid non-negative amounts. object.settlement_instruction Settlement instructions require valid settlement amounts. scenario.settlement Settlement outputs must satisfy this rule."
+  },
+  {
+    "id": "term.booking",
+    "type": "term",
+    "text": "term.booking Booking Business term for creating a booking order from an eligible margin call. object.booking_order defines Booking Order is the object created by booking. scenario.booking explains This scenario describes how booking orders are created."
+  },
+  {
+    "id": "term.margin",
+    "type": "term",
+    "text": "term.margin Margin Business term for collateral requirement calculated from exposure and valuation. object.margin_call defines Margin calls are created when a margin requirement must be booked. column.margin.margin_calculation.margin_requirement This column stores the calculated margin requirement. scenario.margin_calculation explains This scenario calculates margin."
+  },
+  {
+    "id": "term.mtm",
+    "type": "term",
+    "text": "term.mtm MTM Business term for mark-to-market valuation. term.valuation specializes MTM is a specific type of valuation. object.mtm_valuation defines MTM Valuation is the business object that records this valuation. column.risk.mtm_valuation.mtm_value This column stores the MTM value used by margin calculation. scenario.mtm_valuation explains This scenario defines how MTM values are loaded and normalized."
+  },
+  {
+    "id": "term.settlement",
+    "type": "term",
+    "text": "term.settlement Settlement Business term for creating settlement instructions after booking. object.settlement_instruction defines Settlement Instruction is the object produced by settlement. scenario.settlement explains This scenario describes settlement after booking."
+  },
+  {
+    "id": "term.undisputed",
+    "type": "term",
+    "text": "term.undisputed Undisputed Business status indicating no active dispute blocks settlement. object.booking_order qualifies Booking orders must be undisputed before settlement. scenario.settlement explains Settlement uses undisputed status as an eligibility condition."
+  },
+  {
+    "id": "view.settlement.v_margin_settlement_summary",
+    "type": "view",
+    "text": "view.settlement.v_margin_settlement_summary v_margin_settlement_summary View combining margin calculation, booking order, and settlement instruction status. scenario.margin_booking_settlement This view summarizes the parent margin booking settlement scenario."
+  },
+  {
+    "id": "api.margin.get_margin_booking_candidates.margin_call_id",
+    "type": "api_field",
+    "text": "api.margin.get_margin_booking_candidates.margin_call_id margin_call_id Margin call identifier."
+  },
+  {
+    "id": "api.margin.get_margin_booking_candidates.margin_requirement",
+    "type": "api_field",
+    "text": "api.margin.get_margin_booking_candidates.margin_requirement margin_requirement Required margin amount."
+  },
+  {
+    "id": "quality.api.margin.get_margin_booking_candidates.Candidate_API_Requires_Business_Date",
+    "type": "quality_check",
+    "text": "quality.api.margin.get_margin_booking_candidates.Candidate_API_Requires_Business_Date Candidate API Requires Business Date "
+  },
+  {
+    "id": "api.margin.get_margin_settlement_summary.margin_call_id",
+    "type": "api_field",
+    "text": "api.margin.get_margin_settlement_summary.margin_call_id margin_call_id Margin call identifier."
+  },
+  {
+    "id": "api.margin.get_margin_settlement_summary.dispute_status",
+    "type": "api_field",
+    "text": "api.margin.get_margin_settlement_summary.dispute_status dispute_status Booking dispute status."
+  },
+  {
+    "id": "api.margin.get_margin_settlement_summary.settlement_status",
+    "type": "api_field",
+    "text": "api.margin.get_margin_settlement_summary.settlement_status settlement_status Settlement instruction status."
+  },
+  {
+    "id": "quality.column.risk.mtm_valuation.mtm_value.MTM_Value_Not_Null",
+    "type": "quality_check",
+    "text": "quality.column.risk.mtm_valuation.mtm_value.MTM_Value_Not_Null MTM Value Not Null "
+  },
+  {
+    "id": "feedfile.s3.counterparty_mtm_feed.position_id",
+    "type": "feedfile_field",
+    "text": "feedfile.s3.counterparty_mtm_feed.position_id position_id "
+  },
+  {
+    "id": "feedfile.s3.counterparty_mtm_feed.mtm_value",
+    "type": "feedfile_field",
+    "text": "feedfile.s3.counterparty_mtm_feed.mtm_value mtm_value Counterparty-provided MTM value."
+  },
+  {
+    "id": "feedfile.s3.counterparty_mtm_feed.valuation_date",
+    "type": "feedfile_field",
+    "text": "feedfile.s3.counterparty_mtm_feed.valuation_date valuation_date "
+  },
+  {
+    "id": "quality.feedfile.s3.counterparty_mtm_feed.Counterparty_MTM_Feed_Freshness",
+    "type": "quality_check",
+    "text": "quality.feedfile.s3.counterparty_mtm_feed.Counterparty_MTM_Feed_Freshness Counterparty MTM Feed Freshness received within 24 hours"
+  },
+  {
+    "id": "quality.pipeline.airflow.daily_mtm_valuation.Daily_MTM_Valuation_Pipeline_Success",
+    "type": "quality_check",
+    "text": "quality.pipeline.airflow.daily_mtm_valuation.Daily_MTM_Valuation_Pipeline_Success Daily MTM Valuation Pipeline Success last run succeeded"
+  },
+  {
+    "id": "quality.pipeline.airflow.margin_calculation_job.Margin_Calculation_Pipeline_Success",
+    "type": "quality_check",
+    "text": "quality.pipeline.airflow.margin_calculation_job.Margin_Calculation_Pipeline_Success Margin Calculation Pipeline Success last run succeeded"
+  },
+  {
+    "id": "column.booking.booking_order.booking_id",
+    "type": "column",
+    "text": "column.booking.booking_order.booking_id booking_id "
+  },
+  {
+    "id": "column.booking.booking_order.margin_call_id",
+    "type": "column",
+    "text": "column.booking.booking_order.margin_call_id margin_call_id "
+  },
+  {
+    "id": "column.booking.booking_order.booking_amount",
+    "type": "column",
+    "text": "column.booking.booking_order.booking_amount booking_amount "
+  },
+  {
+    "id": "column.booking.booking_order.dispute_status",
+    "type": "column",
+    "text": "column.booking.booking_order.dispute_status dispute_status Indicates whether booking is disputed or undisputed."
+  },
+  {
+    "id": "quality.table.booking.booking_order.Disputed_Booking_Must_Not_Be_Settled",
+    "type": "quality_check",
+    "text": "quality.table.booking.booking_order.Disputed_Booking_Must_Not_Be_Settled Disputed Booking Must Not Be Settled settlement can proceed only when dispute_status == \"undisputed\""
+  },
+  {
+    "id": "column.collateral.collateral_balance.account_id",
+    "type": "column",
+    "text": "column.collateral.collateral_balance.account_id account_id "
+  },
+  {
+    "id": "column.collateral.collateral_balance.available_collateral",
+    "type": "column",
+    "text": "column.collateral.collateral_balance.available_collateral available_collateral "
+  },
+  {
+    "id": "column.collateral.collateral_balance.business_date",
+    "type": "column",
+    "text": "column.collateral.collateral_balance.business_date business_date "
+  },
+  {
+    "id": "quality.table.collateral.collateral_balance.Available_Collateral_Non_Negative",
+    "type": "quality_check",
+    "text": "quality.table.collateral.collateral_balance.Available_Collateral_Non_Negative Available Collateral Non Negative available_collateral >= 0"
+  },
+  {
+    "id": "column.margin.margin_calculation.margin_call_id",
+    "type": "column",
+    "text": "column.margin.margin_calculation.margin_call_id margin_call_id "
+  },
+  {
+    "id": "column.margin.margin_calculation.valuation_id",
+    "type": "column",
+    "text": "column.margin.margin_calculation.valuation_id valuation_id "
+  },
+  {
+    "id": "column.margin.margin_calculation.margin_requirement",
+    "type": "column",
+    "text": "column.margin.margin_calculation.margin_requirement margin_requirement Required margin amount calculated from MTM valuation and collateral."
+  },
+  {
+    "id": "column.margin.margin_calculation.booking_eligible",
+    "type": "column",
+    "text": "column.margin.margin_calculation.booking_eligible booking_eligible "
+  },
+  {
+    "id": "quality.table.margin.margin_calculation.Margin_Requirement_Non_Negative",
+    "type": "quality_check",
+    "text": "quality.table.margin.margin_calculation.Margin_Requirement_Non_Negative Margin Requirement Non Negative margin_requirement >= 0"
+  },
+  {
+    "id": "column.risk.mtm_valuation.valuation_id",
+    "type": "column",
+    "text": "column.risk.mtm_valuation.valuation_id valuation_id "
+  },
+  {
+    "id": "column.risk.mtm_valuation.position_id",
+    "type": "column",
+    "text": "column.risk.mtm_valuation.position_id position_id "
+  },
+  {
+    "id": "column.risk.mtm_valuation.valuation_date",
+    "type": "column",
+    "text": "column.risk.mtm_valuation.valuation_date valuation_date "
+  },
+  {
+    "id": "quality.table.risk.mtm_valuation.MTM_Value_Not_Null",
+    "type": "quality_check",
+    "text": "quality.table.risk.mtm_valuation.MTM_Value_Not_Null MTM Value Not Null "
+  },
+  {
+    "id": "quality.table.risk.mtm_valuation.Valuation_Date_Not_Null",
+    "type": "quality_check",
+    "text": "quality.table.risk.mtm_valuation.Valuation_Date_Not_Null Valuation Date Not Null "
+  },
+  {
+    "id": "column.settlement.settlement_instruction.settlement_id",
+    "type": "column",
+    "text": "column.settlement.settlement_instruction.settlement_id settlement_id "
+  },
+  {
+    "id": "column.settlement.settlement_instruction.booking_id",
+    "type": "column",
+    "text": "column.settlement.settlement_instruction.booking_id booking_id "
+  },
+  {
+    "id": "column.settlement.settlement_instruction.settlement_amount",
+    "type": "column",
+    "text": "column.settlement.settlement_instruction.settlement_amount settlement_amount "
+  },
+  {
+    "id": "column.settlement.settlement_instruction.settlement_status",
+    "type": "column",
+    "text": "column.settlement.settlement_instruction.settlement_status settlement_status "
+  },
+  {
+    "id": "quality.table.settlement.settlement_instruction.Settlement_Amount_Non_Negative",
+    "type": "quality_check",
+    "text": "quality.table.settlement.settlement_instruction.Settlement_Amount_Non_Negative Settlement Amount Non Negative settlement_amount >= 0"
+  },
+  {
+    "id": "column.settlement.v_margin_settlement_summary.margin_call_id",
+    "type": "column",
+    "text": "column.settlement.v_margin_settlement_summary.margin_call_id margin_call_id "
+  },
+  {
+    "id": "column.settlement.v_margin_settlement_summary.margin_requirement",
+    "type": "column",
+    "text": "column.settlement.v_margin_settlement_summary.margin_requirement margin_requirement "
+  },
+  {
+    "id": "column.settlement.v_margin_settlement_summary.booking_id",
+    "type": "column",
+    "text": "column.settlement.v_margin_settlement_summary.booking_id booking_id "
+  },
+  {
+    "id": "column.settlement.v_margin_settlement_summary.dispute_status",
+    "type": "column",
+    "text": "column.settlement.v_margin_settlement_summary.dispute_status dispute_status "
+  },
+  {
+    "id": "column.settlement.v_margin_settlement_summary.settlement_status",
+    "type": "column",
+    "text": "column.settlement.v_margin_settlement_summary.settlement_status settlement_status "
+  }
+]

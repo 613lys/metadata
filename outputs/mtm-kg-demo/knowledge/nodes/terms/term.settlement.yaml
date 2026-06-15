@@ -1,0 +1,16 @@
+id: term.settlement
+type: term
+name: Settlement
+description: Business term for creating settlement instructions after booking.
+definition: Settlement creates instructions to move cash or collateral after a booking is eligible.
+aliases:
+  - settle
+  - settlement instruction
+
+related_nodes:
+  - id: object.settlement_instruction
+    relation: defines
+    description: Settlement Instruction is the object produced by settlement.
+  - id: scenario.settlement
+    relation: explains
+    description: This scenario describes settlement after booking.

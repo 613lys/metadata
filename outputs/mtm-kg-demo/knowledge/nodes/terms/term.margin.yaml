@@ -1,0 +1,18 @@
+id: term.margin
+type: term
+name: Margin
+description: Business term for collateral requirement calculated from exposure and valuation.
+definition: Margin is the required collateral amount calculated from MTM valuation, exposure, and available collateral.
+aliases:
+  - margin requirement
+  - required margin
+
+related_nodes:
+  - id: object.margin_call
+    relation: defines
+    description: Margin calls are created when a margin requirement must be booked.
+  - id: column.margin.margin_calculation.margin_requirement
+    description: This column stores the calculated margin requirement.
+  - id: scenario.margin_calculation
+    relation: explains
+    description: This scenario calculates margin.

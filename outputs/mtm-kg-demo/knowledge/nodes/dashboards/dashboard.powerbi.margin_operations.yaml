@@ -1,0 +1,18 @@
+id: dashboard.powerbi.margin_operations
+type: dashboard
+name: Margin Operations
+description: Dashboard for monitoring margin calls, booking dispute status, and settlement status.
+
+platform: powerbi
+url:
+
+displays:
+  - column.settlement.v_margin_settlement_summary.margin_call_id
+  - column.settlement.v_margin_settlement_summary.dispute_status
+  - column.settlement.v_margin_settlement_summary.settlement_status
+
+related_nodes:
+  - id: scenario.margin_booking_settlement
+    description: Dashboard monitors the parent margin booking settlement scenario.
+  - id: scenario.settlement
+    description: Dashboard shows settlement status.

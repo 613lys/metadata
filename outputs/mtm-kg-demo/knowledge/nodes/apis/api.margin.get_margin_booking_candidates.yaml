@@ -1,0 +1,61 @@
+id: api.margin.get_margin_booking_candidates
+type: api
+name: GET /margin/booking-candidates
+description: Returns eligible margin calls for booking users.
+
+parameters:
+  - name: business_date
+    data_type: date
+    required: true
+    description: Business date for candidate selection.
+  - name: min_margin_requirement
+    data_type: decimal
+    required: false
+    description: Optional minimum margin filter.
+
+returns:
+  - name: margin_call_id
+    data_type: string
+    description: Margin call identifier.
+    lineage:
+      - source: column.margin.margin_calculation.margin_call_id
+        description: Directly selected from margin_calculation.margin_call_id.
+  - name: margin_requirement
+    data_type: decimal
+    description: Required margin amount.
+    lineage:
+      - source: column.margin.margin_calculation.margin_requirement
+        description: Directly selected from margin_calculation.margin_requirement.
+
+logic:
+  description: Reads booking-eligible margin calls and returns candidates for booking.
+  sql: |
+    select
+      margin_call_id,
+      margin_requirement
+    from margin.margin_calculation
+    where booking_eligible = true
+      and margin_requirement >= coalesce(:min_margin_requirement, 0)
+
+related_nodes:
+  - id: scenario.booking
+    description: API serves candidates for the booking scenario.
+  - id: object.margin_call
+    description: API returns eligible margin calls.
+
+lineage:
+  upstream:
+    - id: table.margin.margin_calculation
+      relation: reads
+      description: API reads margin calculation records.
+
+quality_checks:
+  - name: Candidate API Requires Business Date
+    check_type: required_parameters
+    fields:
+      - business_date
+    validates:
+      - id: scenario.booking
+        description: Booking candidate selection must be scoped to a business date.
+      - id: object.margin_call
+        description: The API returns eligible margin calls for booking.

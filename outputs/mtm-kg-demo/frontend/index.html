@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>MTM Data Governance Catalog</title>
+    <link rel="stylesheet" href="./style.css" />
+  </head>
+  <body>
+    <header class="topbar">
+      <div class="brand">
+        <div class="mark">KG</div>
+        <div>
+          <h1>MTM Data Governance Catalog</h1>
+          <p>Catalog first, graph when it explains lineage or semantics</p>
+        </div>
+      </div>
+      <div class="global-search">
+        <input id="search" type="search" placeholder="Search scenarios, assets, terms, APIs, fields..." />
+      </div>
+      <div id="stats" class="stats"></div>
+    </header>
+
+    <aside class="sidebar">
+      <nav class="primary-nav" aria-label="Primary">
+        <button data-page="catalog" class="active">Catalog</button>
+        <button data-page="scenario">Semantics</button>
+        <button data-page="fields">Field Map</button>
+        <button data-page="asset">Asset Profile</button>
+        <button data-page="lineage">Lineage</button>
+        <button data-page="quality">Quality</button>
+      </nav>
+
+      <div class="side-section">
+        <div class="section-title">
+          <span>Browse</span>
+          <button id="reset">Reset</button>
+        </div>
+        <div id="typeFilters" class="filters"></div>
+      </div>
+
+      <div class="side-section fill">
+        <div class="section-title">
+          <span>Results</span>
+        </div>
+        <div id="assetList" class="asset-list"></div>
+      </div>
+    </aside>
+
+    <main class="workspace">
+      <div id="page"></div>
+    </main>
+
+    <aside class="profile">
+      <div class="profile-header">
+        <span id="detailBadge" class="type-badge">node</span>
+        <h2 id="detailTitle">Select an asset</h2>
+        <p id="detailDescription">Click any catalog item, scenario, or graph node to inspect its context.</p>
+      </div>
+      <div id="profileBody"></div>
+    </aside>
+
+    <script src="./graph-data.js"></script>
+    <script src="./catalog-data.js"></script>
+    <script src="./views-data.js"></script>
+    <script src="./app.js"></script>
+  </body>
+</html>

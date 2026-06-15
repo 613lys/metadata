@@ -1,0 +1,34 @@
+id: column.risk.mtm_valuation.mtm_value
+type: column
+name: mtm_value
+description: MTM value used as an input to margin calculation.
+
+parent: table.risk.mtm_valuation
+data_type: decimal
+nullable: false
+
+related_nodes:
+  - id: term.mtm
+    description: This column stores the MTM amount.
+  - id: object.mtm_valuation.mtm_value
+    description: This column maps to the MTM valuation value property.
+  - id: scenario.margin_calculation
+    description: Margin calculation uses this column as an input.
+
+lineage:
+  downstream:
+    - id: column.margin.margin_calculation.margin_requirement
+      description: Margin requirement is calculated using MTM value.
+
+quality_checks:
+  - name: MTM Value Not Null
+    check_type: not_null
+    fields:
+      - mtm_value
+    validates:
+      - id: term.mtm
+        description: MTM value must exist for the MTM concept to be usable.
+      - id: object.mtm_valuation
+        description: MTM valuation records require a valuation amount.
+      - id: scenario.margin_calculation
+        description: Margin calculation depends on this MTM value input.

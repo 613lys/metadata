@@ -1,0 +1,33 @@
+id: scenario.margin_calculation
+type: scenario
+name: Margin Calculation
+description: Calculates required margin from MTM valuation and collateral balance.
+
+parent_scenario: scenario.margin_booking_settlement
+
+business_logic:
+  - name: Read valuation and collateral
+    description: Use MTM valuation and collateral balance as calculation inputs.
+  - name: Calculate required margin
+    description: Produce the required margin amount for each margin call.
+  - name: Determine booking eligibility
+    description: Mark calculated margin calls that can proceed to booking.
+
+related_nodes:
+  - id: term.margin
+    relation: uses_term
+    description: Margin is the primary calculation output.
+  - id: term.mtm
+    relation: uses_term
+    description: MTM valuation is an input to margin calculation.
+  - id: object.margin_call
+    relation: produces
+    description: Margin calculation produces margin calls.
+  - id: table.risk.mtm_valuation
+    description: Source table for MTM values.
+  - id: table.collateral.collateral_balance
+    description: Source table for available collateral.
+  - id: table.margin.margin_calculation
+    description: Output table for margin calculation results.
+  - id: pipeline.airflow.margin_calculation_job
+    description: Pipeline that computes margin.

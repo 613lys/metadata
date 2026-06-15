@@ -1,0 +1,55 @@
+id: table.risk.mtm_valuation
+type: table
+name: mtm_valuation
+description: Stores normalized MTM valuation records by position and valuation date.
+
+schema: risk
+
+columns:
+  - name: valuation_id
+    data_type: varchar
+    nullable: false
+  - name: position_id
+    data_type: varchar
+    nullable: false
+  - name: mtm_value
+    data_type: decimal
+    nullable: false
+    description: MTM value for the position.
+    related_nodes:
+      - id: term.mtm
+        description: This column stores the MTM amount.
+      - id: object.mtm_valuation.mtm_value
+        description: This column maps to the MTM valuation value property.
+  - name: valuation_date
+    data_type: date
+    nullable: false
+
+primary_key:
+  - valuation_id
+
+related_nodes:
+  - id: object.mtm_valuation
+    description: This table stores MTM valuation records.
+  - id: scenario.mtm_valuation
+    description: This table supports MTM valuation.
+
+quality_checks:
+  - name: MTM Value Not Null
+    check_type: not_null
+    fields:
+      - mtm_value
+    validates:
+      - id: term.mtm
+        description: MTM values must be present for valuation meaning.
+      - id: object.mtm_valuation
+        description: MTM valuation records require a valuation amount.
+  - name: Valuation Date Not Null
+    check_type: not_null
+    fields:
+      - valuation_date
+    validates:
+      - id: scenario.mtm_valuation
+        description: Valuation records must be tied to a valuation date.
+      - id: object.mtm_valuation
+        description: MTM valuation records require the valuation date.

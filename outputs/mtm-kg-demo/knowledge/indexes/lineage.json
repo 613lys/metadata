@@ -1,0 +1,162 @@
+{
+  "upstream": {
+    "api.margin.get_margin_booking_candidates": [
+      "table.margin.margin_calculation"
+    ],
+    "api.margin.get_margin_booking_candidates.margin_call_id": [
+      "column.margin.margin_calculation.margin_call_id"
+    ],
+    "api.margin.get_margin_booking_candidates.margin_requirement": [
+      "column.margin.margin_calculation.margin_requirement"
+    ],
+    "api.margin.get_margin_settlement_summary": [
+      "view.settlement.v_margin_settlement_summary"
+    ],
+    "dashboard.powerbi.margin_operations": [
+      "api.margin.get_margin_settlement_summary"
+    ],
+    "api.margin.get_margin_settlement_summary.margin_call_id": [
+      "column.settlement.v_margin_settlement_summary.margin_call_id"
+    ],
+    "api.margin.get_margin_settlement_summary.dispute_status": [
+      "column.settlement.v_margin_settlement_summary.dispute_status"
+    ],
+    "api.margin.get_margin_settlement_summary.settlement_status": [
+      "column.settlement.v_margin_settlement_summary.settlement_status"
+    ],
+    "column.margin.margin_calculation.margin_requirement": [
+      "column.risk.mtm_valuation.mtm_value"
+    ],
+    "object.mtm_valuation": [
+      "object.margin_call",
+      "scenario.mtm_valuation"
+    ],
+    "pipeline.airflow.daily_mtm_valuation": [
+      "feedfile.s3.counterparty_mtm_feed"
+    ],
+    "table.risk.mtm_valuation": [
+      "pipeline.airflow.daily_mtm_valuation"
+    ],
+    "pipeline.airflow.margin_calculation_job": [
+      "table.risk.mtm_valuation",
+      "table.collateral.collateral_balance"
+    ],
+    "table.margin.margin_calculation": [
+      "pipeline.airflow.margin_calculation_job"
+    ],
+    "object.margin_call": [
+      "scenario.booking",
+      "scenario.margin_calculation"
+    ],
+    "object.booking_order": [
+      "scenario.booking",
+      "scenario.settlement"
+    ],
+    "object.settlement_instruction": [
+      "scenario.settlement"
+    ],
+    "table.settlement.settlement_instruction": [
+      "table.booking.booking_order"
+    ],
+    "view.settlement.v_margin_settlement_summary": [
+      "table.margin.margin_calculation",
+      "table.booking.booking_order",
+      "table.settlement.settlement_instruction"
+    ],
+    "column.settlement.v_margin_settlement_summary.margin_call_id": [
+      "column.margin.margin_calculation.margin_call_id"
+    ],
+    "column.settlement.v_margin_settlement_summary.margin_requirement": [
+      "column.margin.margin_calculation.margin_requirement"
+    ],
+    "column.settlement.v_margin_settlement_summary.booking_id": [
+      "column.booking.booking_order.booking_id"
+    ],
+    "column.settlement.v_margin_settlement_summary.dispute_status": [
+      "column.booking.booking_order.dispute_status"
+    ],
+    "column.settlement.v_margin_settlement_summary.settlement_status": [
+      "column.settlement.settlement_instruction.settlement_status"
+    ]
+  },
+  "downstream": {
+    "table.margin.margin_calculation": [
+      "api.margin.get_margin_booking_candidates",
+      "view.settlement.v_margin_settlement_summary"
+    ],
+    "column.margin.margin_calculation.margin_call_id": [
+      "api.margin.get_margin_booking_candidates.margin_call_id",
+      "column.settlement.v_margin_settlement_summary.margin_call_id"
+    ],
+    "column.margin.margin_calculation.margin_requirement": [
+      "api.margin.get_margin_booking_candidates.margin_requirement",
+      "column.settlement.v_margin_settlement_summary.margin_requirement"
+    ],
+    "view.settlement.v_margin_settlement_summary": [
+      "api.margin.get_margin_settlement_summary"
+    ],
+    "api.margin.get_margin_settlement_summary": [
+      "dashboard.powerbi.margin_operations"
+    ],
+    "column.settlement.v_margin_settlement_summary.margin_call_id": [
+      "api.margin.get_margin_settlement_summary.margin_call_id"
+    ],
+    "column.settlement.v_margin_settlement_summary.dispute_status": [
+      "api.margin.get_margin_settlement_summary.dispute_status"
+    ],
+    "column.settlement.v_margin_settlement_summary.settlement_status": [
+      "api.margin.get_margin_settlement_summary.settlement_status"
+    ],
+    "column.risk.mtm_valuation.mtm_value": [
+      "column.margin.margin_calculation.margin_requirement"
+    ],
+    "object.margin_call": [
+      "object.mtm_valuation"
+    ],
+    "feedfile.s3.counterparty_mtm_feed": [
+      "pipeline.airflow.daily_mtm_valuation"
+    ],
+    "pipeline.airflow.daily_mtm_valuation": [
+      "table.risk.mtm_valuation"
+    ],
+    "table.risk.mtm_valuation": [
+      "pipeline.airflow.margin_calculation_job"
+    ],
+    "table.collateral.collateral_balance": [
+      "pipeline.airflow.margin_calculation_job"
+    ],
+    "pipeline.airflow.margin_calculation_job": [
+      "table.margin.margin_calculation"
+    ],
+    "scenario.booking": [
+      "object.margin_call",
+      "object.booking_order"
+    ],
+    "scenario.margin_calculation": [
+      "object.margin_call"
+    ],
+    "scenario.mtm_valuation": [
+      "object.mtm_valuation"
+    ],
+    "scenario.settlement": [
+      "object.booking_order",
+      "object.settlement_instruction"
+    ],
+    "table.booking.booking_order": [
+      "table.settlement.settlement_instruction",
+      "view.settlement.v_margin_settlement_summary"
+    ],
+    "table.settlement.settlement_instruction": [
+      "view.settlement.v_margin_settlement_summary"
+    ],
+    "column.booking.booking_order.booking_id": [
+      "column.settlement.v_margin_settlement_summary.booking_id"
+    ],
+    "column.booking.booking_order.dispute_status": [
+      "column.settlement.v_margin_settlement_summary.dispute_status"
+    ],
+    "column.settlement.settlement_instruction.settlement_status": [
+      "column.settlement.v_margin_settlement_summary.settlement_status"
+    ]
+  }
+}

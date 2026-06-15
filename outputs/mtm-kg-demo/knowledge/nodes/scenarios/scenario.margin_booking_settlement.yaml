@@ -1,0 +1,42 @@
+id: scenario.margin_booking_settlement
+type: scenario
+name: Margin Booking Settlement
+description: Parent business scenario covering MTM valuation, margin calculation, booking, dispute handling, and settlement.
+
+child_scenarios:
+  - scenario.mtm_valuation
+  - scenario.margin_calculation
+  - scenario.booking
+  - scenario.settlement
+
+scenario_flow:
+  - source: scenario.mtm_valuation
+    target: scenario.margin_calculation
+    relation: enables
+    description: MTM valuation must be available before margin can be calculated.
+  - source: scenario.margin_calculation
+    target: scenario.booking
+    relation: produces_input_for
+    description: Booking is created from calculated margin results.
+  - source: scenario.booking
+    target: scenario.settlement
+    relation: enables_when_undisputed
+    description: Undisputed bookings proceed to settlement.
+
+business_logic:
+  - name: Orchestrate margin lifecycle
+    description: Connect valuation, margin calculation, booking, and settlement into one operating flow.
+  - name: Preserve scenario handoffs
+    description: Each child scenario produces the business context needed by the next scenario.
+
+related_nodes:
+  - id: term.mtm
+    description: MTM is the valuation concept used by this flow.
+  - id: term.margin
+    description: Margin is calculated from valuation and collateral context.
+  - id: object.margin_call
+    description: Margin calls are produced by margin calculation.
+  - id: object.booking_order
+    description: Booking orders are created from margin calls.
+  - id: object.settlement_instruction
+    description: Settlement instructions are created for undisputed bookings.
