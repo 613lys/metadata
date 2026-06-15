@@ -52,6 +52,8 @@ related_nodes:
 
 Use a flat `displays` list unless widget-level detail is important. Add widget details only when UI/Agent needs to answer widget-specific impact questions.
 
+Each `displays` entry should be a concrete field reference when possible. The graph builder should create a derived `dashboard_field` node for each displayed field so Field Map can show the dashboard as an asset box with fields, and draw field-level lineage from the source field to the dashboard field.
+
 ## Lineage Notes
 
 Prefer declaring the serving edge on the API node:

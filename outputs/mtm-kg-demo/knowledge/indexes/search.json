@@ -60,6 +60,11 @@
     "text": "pipeline.airflow.margin_calculation_job margin_calculation_job Calculates margin requirement from MTM valuation and collateral balance. scenario.margin_calculation Pipeline implements the margin calculation scenario. Margin Calculation Pipeline Success pipeline_success last run succeeded scenario.margin_calculation Margin calculation depends on this pipeline completing successfully. object.margin_call The pipeline produces margin call calculation results."
   },
   {
+    "id": "quality.margin.booking_order_has_valid_margin_call",
+    "type": "quality_check",
+    "text": "quality.margin.booking_order_has_valid_margin_call Booking Order Has Valid Margin Call Every booking order must reference an existing margin call produced by margin calculation."
+  },
+  {
     "id": "scenario.booking",
     "type": "scenario",
     "text": "scenario.booking Booking Creates booking orders from margin calls after calculation. Select eligible margin calls Identify calculated margin calls that are eligible for booking. Create booking order Convert an eligible margin call into a booking order. term.booking uses_term Booking is the business action of creating a booking order. object.margin_call consumes Booking starts from an eligible margin call. object.booking_order produces Booking produces booking orders. table.margin.margin_calculation Source table for eligible booking candidates. api.margin.get_margin_booking_candidates API serves booking candidates from margin calculation. table.booking.booking_order Table stores booking orders."
@@ -173,6 +178,21 @@
     "id": "quality.column.risk.mtm_valuation.mtm_value.MTM_Value_Not_Null",
     "type": "quality_check",
     "text": "quality.column.risk.mtm_valuation.mtm_value.MTM_Value_Not_Null MTM Value Not Null "
+  },
+  {
+    "id": "dashboard.powerbi.margin_operations.margin_call_id",
+    "type": "dashboard_field",
+    "text": "dashboard.powerbi.margin_operations.margin_call_id margin_call_id Dashboard field displayed from column.settlement.v_margin_settlement_summary.margin_call_id."
+  },
+  {
+    "id": "dashboard.powerbi.margin_operations.dispute_status",
+    "type": "dashboard_field",
+    "text": "dashboard.powerbi.margin_operations.dispute_status dispute_status Dashboard field displayed from column.settlement.v_margin_settlement_summary.dispute_status."
+  },
+  {
+    "id": "dashboard.powerbi.margin_operations.settlement_status",
+    "type": "dashboard_field",
+    "text": "dashboard.powerbi.margin_operations.settlement_status settlement_status Dashboard field displayed from column.settlement.v_margin_settlement_summary.settlement_status."
   },
   {
     "id": "feedfile.s3.counterparty_mtm_feed.position_id",

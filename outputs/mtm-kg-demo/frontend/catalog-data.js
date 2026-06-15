@@ -608,6 +608,45 @@ window.CATALOG_DATA = {
     ],
     "_source_file": "knowledge/nodes/pipelines/pipeline.airflow.margin_calculation_job.yaml"
   },
+  "quality.margin.booking_order_has_valid_margin_call": {
+    "id": "quality.margin.booking_order_has_valid_margin_call",
+    "type": "quality_check",
+    "name": "Booking Order Has Valid Margin Call",
+    "description": "Every booking order must reference an existing margin call produced by margin calculation.",
+    "check_type": "cross_table_referential_integrity",
+    "expectation": "booking_order.margin_call_id must exist in margin_calculation.margin_call_id.",
+    "targets": [
+      {
+        "id": "table.booking.booking_order",
+        "fields": [
+          "margin_call_id"
+        ],
+        "description": "Booking orders carry the margin_call_id that must be valid."
+      },
+      {
+        "id": "table.margin.margin_calculation",
+        "fields": [
+          "margin_call_id"
+        ],
+        "description": "Margin calculation is the authoritative source of margin calls."
+      }
+    ],
+    "validates": [
+      {
+        "id": "object.booking_order",
+        "description": "Booking orders must be traceable to a calculated margin call."
+      },
+      {
+        "id": "object.margin_call",
+        "description": "Margin calls must be the source for booking orders."
+      },
+      {
+        "id": "scenario.booking",
+        "description": "Booking depends on valid margin call references."
+      }
+    ],
+    "_source_file": "knowledge/nodes/quality_checks/quality.margin.booking_order_has_valid_margin_call.yaml"
+  },
   "scenario.booking": {
     "id": "scenario.booking",
     "type": "scenario",

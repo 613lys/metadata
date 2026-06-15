@@ -119,3 +119,28 @@ quality_check -> scenario/object/term validates
 ```
 
 Do not attach a check only to an `object` just because the rule is business-oriented. The object explains what the rule protects; the asset or field explains where it is executed.
+
+## Field Map Display
+
+In Field Map, display quality checks by execution scope:
+
+```text
+single field check      -> badge on that field row
+single asset check      -> chip inside that asset box
+cross-field same asset  -> chip inside that asset box and badges on the involved fields
+cross-asset check       -> repeat the same quality chip inside every involved asset box
+```
+
+For cross-asset checks, the repeated chips must represent the same `quality_check` node, not duplicated rules. When the user clicks the chip, highlight every related asset and field listed in `targets`, and show the full rule, all targets, and `validates` links in the profile panel.
+
+Use `targets[].fields` for precision:
+
+```yaml
+targets:
+  - id: table.booking.booking_order
+    fields:
+      - margin_call_id
+  - id: table.margin.margin_calculation
+    fields:
+      - margin_call_id
+```

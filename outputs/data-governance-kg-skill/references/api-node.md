@@ -27,6 +27,11 @@ returns:
     lineage:
       - source: column.<schema>.<table>.<column>
         description:
+    related_nodes:
+      - id: term.<term>
+        description:
+      - id: object.<object>.<property>
+        description:
 
 logic:
   description:
@@ -93,6 +98,11 @@ returns:
     lineage:
       - source: column.orders.refund_request.refund_amount
         description: Directly selected from refund_request.refund_amount.
+    related_nodes:
+      - id: term.refund
+        description: This response field returns the refund amount.
+      - id: object.refund_request.refund_amount
+        description: This response field maps to the refund amount property.
   - name: settlement_status
     data_type: string
     description: Current settlement status for the refund.

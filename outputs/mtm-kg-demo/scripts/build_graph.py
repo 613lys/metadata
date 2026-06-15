@@ -200,6 +200,21 @@ def compile_graph(raw_nodes: list[dict[str, Any]]) -> tuple[dict[str, Any], dict
                     add_edge(graph_edges, lin.get("source"), field_id, "field_lineage", lin.get("description", ""), f"{field_group}.lineage")
 
         for target in item.get("displays") or []:
+            field_name = target.split(".")[-1]
+            field_id = f"{node_id}.{field_name}"
+            add_node(
+                graph_nodes,
+                field_id,
+                "dashboard_field",
+                field_name,
+                {
+                    "description": f"Dashboard field displayed from {target}.",
+                    "parent": node_id,
+                    "source": target,
+                },
+            )
+            add_edge(graph_edges, node_id, field_id, "contains", f"{item['name']} contains dashboard field {field_name}.", "displays")
+            add_edge(graph_edges, target, field_id, "field_lineage", f"{item['name']} displays {target}.", "displays")
             add_edge(graph_edges, node_id, target, "displays", f"{item['name']} displays {target}.", "displays")
 
         if item.get("type") == "quality_check":
@@ -207,11 +222,16 @@ def compile_graph(raw_nodes: list[dict[str, Any]]) -> tuple[dict[str, Any], dict
                 if isinstance(target, str):
                     target_id = target
                     description = ""
+                    target_fields: list[str] = []
                 else:
                     target_id = target.get("id")
-                    fields = ", ".join(target.get("fields") or [])
-                    description = f"Checks {fields}." if fields else ""
+                    target_fields = target.get("fields") or []
+                    fields = ", ".join(target_fields)
+                    description = target.get("description") or (f"Checks {fields}." if fields else "")
                 add_edge(graph_edges, node_id, target_id, "checks", description, "targets")
+                for field_name in target_fields:
+                    field_id = field_name if "." in field_name else column_id_for(target_id, field_name)
+                    add_edge(graph_edges, node_id, field_id, "checks", description, "targets.fields")
             for target in item.get("validates") or []:
                 if isinstance(target, str):
                     target_id = target

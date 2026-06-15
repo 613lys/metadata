@@ -111,6 +111,15 @@
       }
     },
     {
+      "id": "quality.margin.booking_order_has_valid_margin_call",
+      "type": "quality_check",
+      "label": "Booking Order Has Valid Margin Call",
+      "properties": {
+        "description": "Every booking order must reference an existing margin call produced by margin calculation.",
+        "source_file": "knowledge/nodes/quality_checks/quality.margin.booking_order_has_valid_margin_call.yaml"
+      }
+    },
+    {
       "id": "scenario.booking",
       "type": "scenario",
       "label": "Booking",
@@ -322,6 +331,36 @@
         "description": "",
         "check_type": "not_null",
         "parent": "column.risk.mtm_valuation.mtm_value"
+      }
+    },
+    {
+      "id": "dashboard.powerbi.margin_operations.margin_call_id",
+      "type": "dashboard_field",
+      "label": "margin_call_id",
+      "properties": {
+        "description": "Dashboard field displayed from column.settlement.v_margin_settlement_summary.margin_call_id.",
+        "parent": "dashboard.powerbi.margin_operations",
+        "source": "column.settlement.v_margin_settlement_summary.margin_call_id"
+      }
+    },
+    {
+      "id": "dashboard.powerbi.margin_operations.dispute_status",
+      "type": "dashboard_field",
+      "label": "dispute_status",
+      "properties": {
+        "description": "Dashboard field displayed from column.settlement.v_margin_settlement_summary.dispute_status.",
+        "parent": "dashboard.powerbi.margin_operations",
+        "source": "column.settlement.v_margin_settlement_summary.dispute_status"
+      }
+    },
+    {
+      "id": "dashboard.powerbi.margin_operations.settlement_status",
+      "type": "dashboard_field",
+      "label": "settlement_status",
+      "properties": {
+        "description": "Dashboard field displayed from column.settlement.v_margin_settlement_summary.settlement_status.",
+        "parent": "dashboard.powerbi.margin_operations",
+        "source": "column.settlement.v_margin_settlement_summary.settlement_status"
       }
     },
     {
@@ -994,6 +1033,28 @@
       }
     },
     {
+      "id": "edge.dashboard.powerbi.margin_operations.contains.dashboard.powerbi.margin_operations.margin_call_id",
+      "type": "contains",
+      "source": "dashboard.powerbi.margin_operations",
+      "target": "dashboard.powerbi.margin_operations.margin_call_id",
+      "properties": {
+        "inferred": true,
+        "description": "Margin Operations contains dashboard field margin_call_id.",
+        "source_field": "displays"
+      }
+    },
+    {
+      "id": "edge.column.settlement.v_margin_settlement_summary.margin_call_id.field_lineage.dashboard.powerbi.margin_operations.margin_call_id",
+      "type": "field_lineage",
+      "source": "column.settlement.v_margin_settlement_summary.margin_call_id",
+      "target": "dashboard.powerbi.margin_operations.margin_call_id",
+      "properties": {
+        "inferred": true,
+        "description": "Margin Operations displays column.settlement.v_margin_settlement_summary.margin_call_id.",
+        "source_field": "displays"
+      }
+    },
+    {
       "id": "edge.dashboard.powerbi.margin_operations.displays.column.settlement.v_margin_settlement_summary.margin_call_id",
       "type": "displays",
       "source": "dashboard.powerbi.margin_operations",
@@ -1005,6 +1066,28 @@
       }
     },
     {
+      "id": "edge.dashboard.powerbi.margin_operations.contains.dashboard.powerbi.margin_operations.dispute_status",
+      "type": "contains",
+      "source": "dashboard.powerbi.margin_operations",
+      "target": "dashboard.powerbi.margin_operations.dispute_status",
+      "properties": {
+        "inferred": true,
+        "description": "Margin Operations contains dashboard field dispute_status.",
+        "source_field": "displays"
+      }
+    },
+    {
+      "id": "edge.column.settlement.v_margin_settlement_summary.dispute_status.field_lineage.dashboard.powerbi.margin_operations.dispute_status",
+      "type": "field_lineage",
+      "source": "column.settlement.v_margin_settlement_summary.dispute_status",
+      "target": "dashboard.powerbi.margin_operations.dispute_status",
+      "properties": {
+        "inferred": true,
+        "description": "Margin Operations displays column.settlement.v_margin_settlement_summary.dispute_status.",
+        "source_field": "displays"
+      }
+    },
+    {
       "id": "edge.dashboard.powerbi.margin_operations.displays.column.settlement.v_margin_settlement_summary.dispute_status",
       "type": "displays",
       "source": "dashboard.powerbi.margin_operations",
@@ -1012,6 +1095,28 @@
       "properties": {
         "inferred": true,
         "description": "Margin Operations displays column.settlement.v_margin_settlement_summary.dispute_status.",
+        "source_field": "displays"
+      }
+    },
+    {
+      "id": "edge.dashboard.powerbi.margin_operations.contains.dashboard.powerbi.margin_operations.settlement_status",
+      "type": "contains",
+      "source": "dashboard.powerbi.margin_operations",
+      "target": "dashboard.powerbi.margin_operations.settlement_status",
+      "properties": {
+        "inferred": true,
+        "description": "Margin Operations contains dashboard field settlement_status.",
+        "source_field": "displays"
+      }
+    },
+    {
+      "id": "edge.column.settlement.v_margin_settlement_summary.settlement_status.field_lineage.dashboard.powerbi.margin_operations.settlement_status",
+      "type": "field_lineage",
+      "source": "column.settlement.v_margin_settlement_summary.settlement_status",
+      "target": "dashboard.powerbi.margin_operations.settlement_status",
+      "properties": {
+        "inferred": true,
+        "description": "Margin Operations displays column.settlement.v_margin_settlement_summary.settlement_status.",
         "source_field": "displays"
       }
     },
@@ -1420,6 +1525,83 @@
         "inferred": true,
         "description": "The pipeline produces margin call calculation results.",
         "source_field": "quality_checks.validates"
+      }
+    },
+    {
+      "id": "edge.quality.margin.booking_order_has_valid_margin_call.checks.table.booking.booking_order",
+      "type": "checks",
+      "source": "quality.margin.booking_order_has_valid_margin_call",
+      "target": "table.booking.booking_order",
+      "properties": {
+        "inferred": true,
+        "description": "Booking orders carry the margin_call_id that must be valid.",
+        "source_field": "targets"
+      }
+    },
+    {
+      "id": "edge.quality.margin.booking_order_has_valid_margin_call.checks.column.booking.booking_order.margin_call_id",
+      "type": "checks",
+      "source": "quality.margin.booking_order_has_valid_margin_call",
+      "target": "column.booking.booking_order.margin_call_id",
+      "properties": {
+        "inferred": true,
+        "description": "Booking orders carry the margin_call_id that must be valid.",
+        "source_field": "targets.fields"
+      }
+    },
+    {
+      "id": "edge.quality.margin.booking_order_has_valid_margin_call.checks.table.margin.margin_calculation",
+      "type": "checks",
+      "source": "quality.margin.booking_order_has_valid_margin_call",
+      "target": "table.margin.margin_calculation",
+      "properties": {
+        "inferred": true,
+        "description": "Margin calculation is the authoritative source of margin calls.",
+        "source_field": "targets"
+      }
+    },
+    {
+      "id": "edge.quality.margin.booking_order_has_valid_margin_call.checks.column.margin.margin_calculation.margin_call_id",
+      "type": "checks",
+      "source": "quality.margin.booking_order_has_valid_margin_call",
+      "target": "column.margin.margin_calculation.margin_call_id",
+      "properties": {
+        "inferred": true,
+        "description": "Margin calculation is the authoritative source of margin calls.",
+        "source_field": "targets.fields"
+      }
+    },
+    {
+      "id": "edge.quality.margin.booking_order_has_valid_margin_call.validates.object.booking_order",
+      "type": "validates",
+      "source": "quality.margin.booking_order_has_valid_margin_call",
+      "target": "object.booking_order",
+      "properties": {
+        "inferred": true,
+        "description": "Booking orders must be traceable to a calculated margin call.",
+        "source_field": "validates"
+      }
+    },
+    {
+      "id": "edge.quality.margin.booking_order_has_valid_margin_call.validates.object.margin_call",
+      "type": "validates",
+      "source": "quality.margin.booking_order_has_valid_margin_call",
+      "target": "object.margin_call",
+      "properties": {
+        "inferred": true,
+        "description": "Margin calls must be the source for booking orders.",
+        "source_field": "validates"
+      }
+    },
+    {
+      "id": "edge.quality.margin.booking_order_has_valid_margin_call.validates.scenario.booking",
+      "type": "validates",
+      "source": "quality.margin.booking_order_has_valid_margin_call",
+      "target": "scenario.booking",
+      "properties": {
+        "inferred": true,
+        "description": "Booking depends on valid margin call references.",
+        "source_field": "validates"
       }
     },
     {

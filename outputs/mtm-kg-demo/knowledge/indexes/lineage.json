@@ -27,6 +27,15 @@
     "column.margin.margin_calculation.margin_requirement": [
       "column.risk.mtm_valuation.mtm_value"
     ],
+    "dashboard.powerbi.margin_operations.margin_call_id": [
+      "column.settlement.v_margin_settlement_summary.margin_call_id"
+    ],
+    "dashboard.powerbi.margin_operations.dispute_status": [
+      "column.settlement.v_margin_settlement_summary.dispute_status"
+    ],
+    "dashboard.powerbi.margin_operations.settlement_status": [
+      "column.settlement.v_margin_settlement_summary.settlement_status"
+    ],
     "object.mtm_valuation": [
       "object.margin_call",
       "scenario.mtm_valuation"
@@ -99,13 +108,16 @@
       "dashboard.powerbi.margin_operations"
     ],
     "column.settlement.v_margin_settlement_summary.margin_call_id": [
-      "api.margin.get_margin_settlement_summary.margin_call_id"
+      "api.margin.get_margin_settlement_summary.margin_call_id",
+      "dashboard.powerbi.margin_operations.margin_call_id"
     ],
     "column.settlement.v_margin_settlement_summary.dispute_status": [
-      "api.margin.get_margin_settlement_summary.dispute_status"
+      "api.margin.get_margin_settlement_summary.dispute_status",
+      "dashboard.powerbi.margin_operations.dispute_status"
     ],
     "column.settlement.v_margin_settlement_summary.settlement_status": [
-      "api.margin.get_margin_settlement_summary.settlement_status"
+      "api.margin.get_margin_settlement_summary.settlement_status",
+      "dashboard.powerbi.margin_operations.settlement_status"
     ],
     "column.risk.mtm_valuation.mtm_value": [
       "column.margin.margin_calculation.margin_requirement"

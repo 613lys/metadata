@@ -12,7 +12,7 @@ const badgeEl = document.getElementById("detailBadge");
 const descEl = document.getElementById("detailDescription");
 
 const nodeMap = new Map(graph.nodes.map(node => [node.id, node]));
-const childTypes = new Set(["column", "api_field", "feedfile_field", "quality_check"]);
+const childTypes = new Set(["column", "api_field", "feedfile_field", "dashboard_field", "quality_check"]);
 const datasetTypes = new Set(["table", "view"]);
 const dataAssetTypes = new Set(["feedfile", "pipeline", "table", "view", "column", "api", "dashboard"]);
 const semanticTypes = new Set(["scenario", "term", "object"]);
@@ -24,6 +24,7 @@ let selectedEdge = null;
 let selectedLogic = null;
 let expanded = new Set();
 let activeTypes = new Set(graph.nodes.filter(node => !childTypes.has(node.type)).map(node => node.type));
+let browseTypes = new Set(graph.nodes.map(node => node.type));
 let currentBusinessEdges = [];
 
 const color = {
@@ -41,6 +42,7 @@ const color = {
   quality_check: "#b7791f",
   api_field: "#fb923c",
   feedfile_field: "#64748b",
+  dashboard_field: "#dc2626",
 };
 
 const typeLabel = {
@@ -58,6 +60,7 @@ const typeLabel = {
   quality_check: "Quality",
   api_field: "API Field",
   feedfile_field: "Feed Field",
+  dashboard_field: "Dashboard Field",
 };
 
 const lanes = [
@@ -201,6 +204,7 @@ function renderSidebarResults() {
 }
 
 function renderPage() {
+  if (page === "browse") return renderBrowsePage();
   if (page === "scenario") return renderScenarioPage();
   if (page === "fields") return renderFieldsPage();
   if (page === "asset") return renderAssetPage();
@@ -208,6 +212,103 @@ function renderPage() {
   if (page === "ontology") return renderOntologyPage();
   if (page === "quality") return renderQualityPage();
   return renderCatalogPage();
+}
+
+function renderBrowsePage() {
+  const nodes = visibleBrowseNodes();
+  const typeCounts = countByType(graph.nodes);
+  const topTypes = Object.entries(typeCounts).sort((a, b) => b[1] - a[1]).slice(0, 8);
+
+  pageEl.innerHTML = `
+    ${pageHeader("Browse", "Search and filter every node in the governance graph, including assets, fields, terms, objects, scenarios, quality checks, and generated dashboard fields.", [
+      ["Open Catalog", "catalog", selected],
+    ])}
+    <div class="metrics-grid">
+      ${metric("All Nodes", graph.nodes.length)}
+      ${metric("Visible", nodes.length)}
+      ${metric("Types", Object.keys(typeCounts).length)}
+      ${metric("Relationships", graph.edges.length)}
+    </div>
+    <section class="section">
+      <h3>Search</h3>
+      <div class="browse-controls">
+        <input id="browseSearch" type="search" value="${escapeAttr(searchEl.value)}" placeholder="Search by name, id, type, description..." />
+        <button id="browseClear">Clear</button>
+      </div>
+      <div class="browse-type-grid">
+        ${Object.entries(typeCounts).sort((a, b) => a[0].localeCompare(b[0])).map(([type, count]) => `
+          <button class="${browseTypes.has(type) ? "active" : ""}" data-browse-type="${escapeAttr(type)}">
+            ${escapeHtml(typeLabel[type] || type)} <span>${count}</span>
+          </button>
+        `).join("")}
+      </div>
+    </section>
+    <section class="section">
+      <h3>Node Results</h3>
+      <div class="browse-summary">
+        ${topTypes.map(([type, count]) => `<span>${escapeHtml(typeLabel[type] || type)} ${count}</span>`).join("")}
+      </div>
+      <div class="browse-results">
+        ${nodes.map(renderBrowseNode).join("") || empty("No nodes match the current search and type filters.")}
+      </div>
+    </section>
+  `;
+  wireBrowseControls();
+}
+
+function visibleBrowseNodes() {
+  return graph.nodes
+    .filter(node => browseTypes.has(node.type))
+    .filter(isVisibleByQuery)
+    .sort((a, b) => `${a.type}:${a.label}:${a.id}`.localeCompare(`${b.type}:${b.label}:${b.id}`));
+}
+
+function renderBrowseNode(node) {
+  const relations = relatedFor(node.id).slice(0, 3);
+  return `
+    <div class="browse-node ${node.id === selected ? "selected" : ""}" data-id="${escapeAttr(node.id)}">
+      <div class="browse-node-main">
+        <div class="node-top">
+          <span class="node-dot" style="background:${color[node.type] || "#64748b"}"></span>
+          <strong>${escapeHtml(node.label)}</strong>
+          ${badge(node.type)}
+        </div>
+        <p>${escapeHtml(node.properties?.description || raw(node.id).description || "No description.")}</p>
+        <small>${escapeHtml(node.id)}</small>
+      </div>
+      <div class="browse-node-side">
+        ${parentOf(node.id) !== node.id ? `<span>Parent: ${escapeHtml(labelOf(parentOf(node.id)))}</span>` : ""}
+        <span>${relations.length} related shown</span>
+        ${relations.map(rel => `<em>${escapeHtml(rel.type)} ${escapeHtml(rel.otherLabel)}</em>`).join("")}
+      </div>
+    </div>
+  `;
+}
+
+function wireBrowseControls() {
+  const input = document.getElementById("browseSearch");
+  if (input) {
+    input.oninput = event => {
+      searchEl.value = event.target.value;
+      render();
+    };
+  }
+  const clear = document.getElementById("browseClear");
+  if (clear) {
+    clear.onclick = () => {
+      searchEl.value = "";
+      browseTypes = new Set(graph.nodes.map(node => node.type));
+      render();
+    };
+  }
+  pageEl.querySelectorAll("[data-browse-type]").forEach(button => {
+    button.onclick = event => {
+      const type = button.dataset.browseType;
+      browseTypes.has(type) ? browseTypes.delete(type) : browseTypes.add(type);
+      render();
+      event.stopPropagation();
+    };
+  });
 }
 
 function renderCatalogPage() {
@@ -219,7 +320,7 @@ function renderCatalogPage() {
   pageEl.innerHTML = `
     ${pageHeader("Catalog", "Scenario-level data flow across feed files, pipelines, datasets, APIs, and dashboards.", [
       ["Open Main Scenario", "scenario", mainScenario?.id],
-      ["Explore Lineage", "lineage", mainScenario?.id],
+      ["Open Profile", "asset", mainScenario?.id],
     ])}
     <div class="metrics-grid">
       ${metric("Scenarios", counts.scenario || 0)}
@@ -249,7 +350,6 @@ function renderScenarioPage() {
   pageEl.innerHTML = `
     ${pageHeader("Business Context", "Scenario-level business logic, objects, terms, implementation mappings, and quality safeguards.", [
       ["Open Asset Profile", "asset", selected],
-      ["Explore Lineage", "lineage", selected],
     ])}
     <div class="metrics-grid">
       ${metric("Sub-scenarios", model.scenarioPanels.length)}
@@ -269,14 +369,15 @@ function renderScenarioPage() {
 }
 
 function renderAssetPage() {
-  const node = nodeById(selected) || graph.nodes.find(item => dataAssetTypes.has(item.type) && !childTypes.has(item.type)) || graph.nodes[0];
+  const node = nodeById(selected) || graph.nodes[0];
   selected = node.id;
   const data = raw(selected);
-  const fields = fieldGroups(data);
+  const relations = directRelationsFor(selected);
+  const grouped = groupRelationsByType(relations);
 
   pageEl.innerHTML = `
-    ${pageHeader("Asset Profile", "A focused page for one table, view, feed, API, dashboard, pipeline, term, object, or scenario.", [
-      ["Explore Lineage", "lineage", selected],
+    ${pageHeader("Asset Profile", "One-hop relationship graph for the selected node.", [
+      ["Browse All Nodes", "browse", selected],
       ["Show Semantics", "scenario", selected],
     ])}
     <div class="grid-2">
@@ -285,20 +386,26 @@ function renderAssetPage() {
         ${overviewKv(node, data)}
       </div>
       <div class="profile-card">
-        <h3>Governance</h3>
-        ${governanceKv(data)}
+        <h3>Direct Connections</h3>
+        ${kv("Connected Nodes", relations.length)}
+        ${kv("Relationship Types", Object.keys(grouped).length)}
+        ${kv("Incoming", relations.filter(rel => rel.direction === "in").length)}
+        ${kv("Outgoing", relations.filter(rel => rel.direction === "out").length)}
       </div>
     </div>
     <section class="section">
-      <h3>Schema, Parameters, Returns, or Fields</h3>
-      ${fields.length ? fields.map(renderFieldGroup).join("") : empty("No field-level data on this node.")}
+      <h3>One-Hop Relationship Graph</h3>
+      <div class="one-hop-shell">
+        <svg id="oneHopEdgeLayer" aria-hidden="true"></svg>
+        <div id="oneHopBoard" class="one-hop-board" role="img" aria-label="One-hop relationship graph"></div>
+      </div>
     </section>
     <section class="section">
-      <h3>Lineage and Relationships</h3>
-      ${relatedFor(selected).map(relationRow).join("") || empty("No relationships.")}
+      <h3>Selected Edge</h3>
+      ${selectedEdge ? edgeInfo(selectedEdge) : empty("Click a relationship edge label to inspect source, target, and description.")}
     </section>
-    ${data.logic?.sql || data.sql ? `<section class="section"><h3>Logic</h3><pre class="code-block">${escapeHtml(data.logic?.sql || data.sql)}</pre></section>` : ""}
   `;
+  renderOneHopGraph(node, relations);
 }
 
 function renderLineagePage() {
@@ -350,85 +457,61 @@ function renderQualityPage() {
 }
 
 function renderFieldsPage() {
-  const focusScenario = typeOf(selected) === "scenario"
-    ? selected
-    : "scenario.margin_booking_settlement";
-  const groups = fieldMapGroups(focusScenario);
-  const allRows = groups.flatMap(group => group.rows);
-  const mappedRows = allRows.filter(row => row.semantic.length);
-  const lineageRows = allRows.filter(row => row.lineage.length);
-  const qualityRows = allRows.filter(row => row.quality.length);
+  const model = fieldAssetModel();
+  const mappedFields = model.fields.filter(field => fieldSemanticLinks(field.id).length);
+  const qualityFields = model.fields.filter(field => fieldQualityLinks(field.id).length);
+  const qualityAssets = model.assets.filter(asset => assetQualityLinks(asset.id).length);
 
   pageEl.innerHTML = `
-    ${pageHeader("Field Map", "Field-level meaning, lineage, and quality without expanding every field inside Catalog or Business Context.", [
-      ["Open Semantics", "scenario", focusScenario],
-      ["Explore Lineage", "lineage", focusScenario],
+    ${pageHeader("Field Map", "Field-level meaning and lineage across all assets. Each asset contains its fields like an ER diagram.", [
+      ["Open Catalog", "catalog", selected],
     ])}
     <div class="metrics-grid">
-      ${metric("Fields", allRows.length)}
-      ${metric("Semantic Mappings", mappedRows.length)}
-      ${metric("Field Lineage", lineageRows.length)}
-      ${metric("Field Quality", qualityRows.length)}
+      ${metric("Assets With Fields", model.assets.length)}
+      ${metric("Fields", model.fields.length)}
+      ${metric("Field Lineage Edges", model.edges.length)}
+      ${metric("Quality Coverage", `${qualityAssets.length} assets / ${qualityFields.length} fields`)}
     </div>
     <section class="section">
-      <h3>Field Coverage By Scenario</h3>
-      <div class="field-map">
-        ${groups.map(renderFieldMapGroup).join("") || empty("No field-level nodes for this scenario.")}
+      <h3>Field-Level ER / Lineage Map</h3>
+      <div class="field-er-shell">
+        <svg id="fieldEdgeLayer" aria-hidden="true"></svg>
+        <div id="fieldErBoard" class="field-er-board" role="img" aria-label="Field-level ER and lineage map"></div>
       </div>
     </section>
   `;
+  renderFieldErMap(model);
 }
 
-function fieldMapGroups(focusScenario) {
-  const mainData = raw(focusScenario);
-  const scenarioIds = scenarioFlowIds(mainData).filter(id => typeOf(id) === "scenario");
-  const ids = scenarioIds.length ? scenarioIds : [focusScenario];
-  return ids.map(scenarioId => {
-    const assets = collectRelatedByTypes(scenarioId, dataAssetTypes)
-      .filter(node => !childTypes.has(node.type))
-      .sort((a, b) => `${a.type}:${a.label}`.localeCompare(`${b.type}:${b.label}`));
-    const assetIds = new Set(assets.map(node => node.id));
-    const fields = graph.nodes
-      .filter(node => ["column", "api_field", "feedfile_field"].includes(node.type))
-      .filter(node => assetIds.has(parentOf(node.id)))
-      .sort((a, b) => `${typeOf(parentOf(a.id))}:${labelOf(parentOf(a.id))}:${a.label}`.localeCompare(`${typeOf(parentOf(b.id))}:${labelOf(parentOf(b.id))}:${b.label}`));
-    return {
-      scenarioId,
-      rows: fields.map(field => fieldMapRow(field)),
-    };
-  }).filter(group => group.rows.length);
-}
-
-function fieldMapRow(field) {
-  const semantic = [];
-  const lineage = [];
-  const quality = [];
-  graph.edges.forEach(edge => {
-    const touchesSource = edge.source === field.id;
-    const touchesTarget = edge.target === field.id;
-    if (!touchesSource && !touchesTarget) return;
-    const otherId = touchesSource ? edge.target : edge.source;
-    const other = nodeById(otherId);
-    const description = edge.properties?.description || "";
-    if (other && ["term", "object", "scenario"].includes(other.type)) {
-      semantic.push({ id: other.id, label: other.label, type: other.type, relation: edge.type, description });
-      return;
-    }
-    if (other?.type === "quality_check" || edge.type === "checks") {
-      quality.push({ id: otherId, label: labelOf(otherId), type: typeOf(otherId), relation: edge.type, description });
-      return;
-    }
-    if (["field_lineage", "lineage", "maps_to_property", "derived_from"].includes(edge.type) || typeOf(otherId) === "column" || typeOf(otherId) === "api_field" || typeOf(otherId) === "feedfile_field") {
-      lineage.push({ id: otherId, label: labelOf(otherId), type: typeOf(otherId), relation: edge.type, direction: touchesSource ? "to" : "from", description });
-    }
-  });
-  return {
-    field,
-    parentId: parentOf(field.id),
-    semantic: dedupeFieldLinks(semantic),
-    lineage: dedupeFieldLinks(lineage),
-    quality: dedupeFieldLinks(quality),
-  };
+function fieldAssetModel() {
+  const fieldTypes = new Set(["column", "api_field", "feedfile_field", "dashboard_field"]);
+  const assetOrder = ["feedfile", "table", "view", "api", "dashboard"];
+  const fields = graph.nodes
+    .filter(node => fieldTypes.has(node.type))
+    .sort((a, b) => `${assetOrder.indexOf(typeOf(parentOf(a.id)))}:${labelOf(parentOf(a.id))}:${a.label}`.localeCompare(`${assetOrder.indexOf(typeOf(parentOf(b.id)))}:${labelOf(parentOf(b.id))}:${b.label}`));
+  const fieldIds = new Set(fields.map(field => field.id));
+  const assetIds = new Set(fields.map(field => parentOf(field.id)));
+  const assets = [...assetIds]
+    .map(nodeById)
+    .filter(Boolean)
+    .sort((a, b) => {
+      const laneA = assetOrder.indexOf(a.type);
+      const laneB = assetOrder.indexOf(b.type);
+      return `${laneA < 0 ? 99 : laneA}:${a.label}`.localeCompare(`${laneB < 0 ? 99 : laneB}:${b.label}`);
+    });
+  const edges = graph.edges
+    .filter(edge => fieldIds.has(edge.source) && fieldIds.has(edge.target))
+    .filter(edge => ["field_lineage", "lineage", "derived_from", "maps_to_property"].includes(edge.type))
+    .map(edge => ({
+      id: edge.id || `${edge.source}|${edge.type}|${edge.target}`,
+      source: edge.source,
+      target: edge.target,
+      sourceOriginal: edge.source,
+      targetOriginal: edge.target,
+      type: edge.type,
+      descriptions: edge.properties?.description ? [edge.properties.description] : [],
+    }));
+  return { assets, fields, edges, assetOrder };
 }
 
 function dedupeFieldLinks(rows) {
@@ -441,56 +524,215 @@ function dedupeFieldLinks(rows) {
   });
 }
 
-function renderFieldMapGroup(group) {
-  return `
-    <div class="field-group">
-      <div class="field-group-header" data-id="${escapeAttr(group.scenarioId)}">
+function fieldSemanticLinks(fieldId) {
+  const rows = [];
+  graph.edges.forEach(edge => {
+    const touchesSource = edge.source === fieldId;
+    const touchesTarget = edge.target === fieldId;
+    if (!touchesSource && !touchesTarget) return;
+    const otherId = touchesSource ? edge.target : edge.source;
+    const other = nodeById(otherId);
+    if (!other || !["term", "object", "scenario"].includes(other.type)) return;
+    rows.push({ id: other.id, label: other.label, type: other.type, relation: edge.type, description: edge.properties?.description || "" });
+  });
+  return dedupeFieldLinks(rows);
+}
+
+function fieldLineageLinks(fieldId) {
+  const rows = [];
+  graph.edges.forEach(edge => {
+    const touchesSource = edge.source === fieldId;
+    const touchesTarget = edge.target === fieldId;
+    if (!touchesSource && !touchesTarget) return;
+    const otherId = touchesSource ? edge.target : edge.source;
+    if (!["column", "api_field", "feedfile_field", "dashboard_field"].includes(typeOf(otherId))) return;
+    if (!["field_lineage", "lineage", "derived_from", "maps_to_property"].includes(edge.type)) return;
+    rows.push({ id: otherId, label: labelOf(otherId), type: typeOf(otherId), relation: edge.type, direction: touchesSource ? "to" : "from", description: edge.properties?.description || "" });
+  });
+  return dedupeFieldLinks(rows);
+}
+
+function fieldQualityLinks(fieldId) {
+  const rows = [];
+  graph.edges.forEach(edge => {
+    const touchesSource = edge.source === fieldId;
+    const touchesTarget = edge.target === fieldId;
+    if (!touchesSource && !touchesTarget) return;
+    const otherId = touchesSource ? edge.target : edge.source;
+    if (typeOf(otherId) !== "quality_check" && edge.type !== "checks") return;
+    rows.push({ id: otherId, label: labelOf(otherId), type: typeOf(otherId), relation: edge.type, description: edge.properties?.description || "" });
+  });
+  return dedupeFieldLinks(rows);
+}
+
+function assetQualityLinks(assetId) {
+  const rows = [];
+  graph.edges.forEach(edge => {
+    if (edge.type !== "checks") return;
+    const targetAsset = parentOf(edge.target);
+    if (edge.target !== assetId && targetAsset !== assetId) return;
+    const check = nodeById(edge.source);
+    if (!check || check.type !== "quality_check") return;
+    rows.push({
+      id: check.id,
+      label: check.label,
+      type: check.type,
+      relation: edge.type,
+      description: edge.properties?.description || check.properties?.description || "",
+    });
+  });
+  return dedupeFieldLinks(rows);
+}
+
+function qualityTargetIds(qualityId) {
+  const ids = new Set();
+  graph.edges.forEach(edge => {
+    if (edge.type !== "checks" || edge.source !== qualityId) return;
+    ids.add(edge.target);
+    ids.add(parentOf(edge.target));
+  });
+  return ids;
+}
+
+function renderFieldErMap(model) {
+  const board = document.getElementById("fieldErBoard");
+  const edgeLayer = document.getElementById("fieldEdgeLayer");
+  if (!board || !edgeLayer) return;
+  const layout = fieldErLayout(model);
+  board.innerHTML = "";
+  edgeLayer.innerHTML = "";
+  board.style.width = `${layout.width}px`;
+  board.style.height = `${layout.height}px`;
+  edgeLayer.style.width = `${layout.width}px`;
+  edgeLayer.style.height = `${layout.height}px`;
+  edgeLayer.setAttribute("width", layout.width);
+  edgeLayer.setAttribute("height", layout.height);
+
+  model.assetOrder.forEach((type, index) => {
+    const title = document.createElement("div");
+    title.className = "field-lane-title";
+    title.style.left = `${layout.left + index * layout.columnGap}px`;
+    title.textContent = typeLabel[type] || type;
+    board.appendChild(title);
+  });
+
+  model.assets.forEach(asset => {
+    const assetLayout = layout.assets[asset.id];
+    if (!assetLayout) return;
+    const box = document.createElement("div");
+    box.className = "field-asset-box";
+    box.style.left = `${assetLayout.x}px`;
+    box.style.top = `${assetLayout.y}px`;
+    box.style.width = `${layout.assetWidth}px`;
+    box.style.height = `${assetLayout.h}px`;
+    box.dataset.id = asset.id;
+    const fields = layout.fieldsByAsset[asset.id] || [];
+    const quality = assetQualityLinks(asset.id);
+    box.innerHTML = `
+      <div class="field-asset-header">
         <div>
-          <strong>${escapeHtml(labelOf(group.scenarioId))}</strong>
-          <span>${escapeHtml(descOf(group.scenarioId) || group.scenarioId)}</span>
+          <strong>${escapeHtml(asset.label)}</strong>
+          <span>${escapeHtml(asset.id)}</span>
         </div>
-        ${badge("scenario")}
+        ${badge(asset.type)}
       </div>
-      <div class="field-table">
-        <div class="field-table-row field-table-head">
-          <span>Field</span>
-          <span>Parent Asset</span>
-          <span>Semantic Mapping</span>
-          <span>Lineage</span>
-          <span>Quality</span>
+      <div class="field-list">
+        ${fields.map(field => renderFieldErRow(field)).join("")}
+      </div>
+      ${quality.length ? `
+        <div class="asset-quality-strip">
+          ${quality.map(check => `
+            <button class="quality-chip" data-id="${escapeAttr(check.id)}" title="${escapeAttr(check.description || check.id)}">
+              ${escapeHtml(check.label)}
+            </button>
+          `).join("")}
         </div>
-        ${group.rows.map(renderFieldMapRow).join("")}
-      </div>
-    </div>
-  `;
+      ` : ""}
+    `;
+    board.appendChild(box);
+  });
+
+  model.edges.forEach(edge => {
+    const a = layout.fieldPositions[edge.source];
+    const b = layout.fieldPositions[edge.target];
+    if (!a || !b) return;
+    drawFieldEdge(edgeLayer, edge, a, b);
+  });
+
+  updateSelectedClasses();
 }
 
-function renderFieldMapRow(row) {
-  const field = row.field;
+function renderFieldErRow(field) {
+  const semantic = fieldSemanticLinks(field.id);
+  const quality = fieldQualityLinks(field.id);
   return `
-    <div class="field-table-row" data-id="${escapeAttr(field.id)}">
-      <span>
+    <div class="field-er-row" data-id="${escapeAttr(field.id)}" data-field-id="${escapeAttr(field.id)}">
+      <div>
         <strong>${escapeHtml(field.label)}</strong>
-        <small>${escapeHtml(field.properties?.data_type || "")}</small>
-      </span>
-      <span>
-        ${badge(typeOf(row.parentId))}
-        <small>${escapeHtml(labelOf(row.parentId))}</small>
-      </span>
-      <span>${renderFieldLinks(row.semantic, "No term/object mapping")}</span>
-      <span>${renderFieldLinks(row.lineage, "No field lineage")}</span>
-      <span>${renderFieldLinks(row.quality, "No field check")}</span>
+        <span>${escapeHtml(field.properties?.description || "No field description.")}</span>
+      </div>
+      <small>${escapeHtml(field.properties?.data_type || "")}</small>
+      ${semantic.length ? `<em>${escapeHtml(semantic.map(item => item.label).slice(0, 2).join(", "))}</em>` : ""}
+      ${quality.length ? `<b title="${escapeAttr(quality.map(item => item.label).join(", "))}">${quality.length}</b>` : ""}
     </div>
   `;
 }
 
-function renderFieldLinks(rows, emptyText) {
-  if (!rows.length) return `<small class="muted">${escapeHtml(emptyText)}</small>`;
-  return rows.slice(0, 3).map(row => `
-    <button class="inline-link" data-id="${escapeAttr(row.id)}" title="${escapeAttr(row.description || row.id)}">
-      ${escapeHtml(row.direction ? `${row.direction} ` : "")}${escapeHtml(row.label)}
-    </button>
-  `).join("");
+function fieldErLayout(model) {
+  const left = 28;
+  const top = 54;
+  const columnGap = 286;
+  const assetWidth = 252;
+  const headerHeight = 68;
+  const rowHeight = 54;
+  const qualityHeaderHeight = 14;
+  const qualityChipHeight = 27;
+  const assetGap = 42;
+  const fieldPositions = {};
+  const fieldsByAsset = {};
+  const assets = {};
+  const yByLane = new Map(model.assetOrder.map((type, index) => [type, top]));
+  model.assets.forEach(asset => {
+    const fields = model.fields.filter(field => parentOf(field.id) === asset.id);
+    const qualityCount = assetQualityLinks(asset.id).length;
+    fieldsByAsset[asset.id] = fields;
+    const laneIndex = Math.max(0, model.assetOrder.indexOf(asset.type));
+    const x = left + laneIndex * columnGap;
+    const y = yByLane.get(asset.type) || top;
+    const qualityHeight = qualityCount ? qualityHeaderHeight + qualityCount * qualityChipHeight : 0;
+    const h = headerHeight + fields.length * rowHeight + 12 + qualityHeight;
+    assets[asset.id] = { x, y, h };
+    fields.forEach((field, index) => {
+      fieldPositions[field.id] = {
+        x,
+        y: y + headerHeight + index * rowHeight + rowHeight / 2,
+        right: x + assetWidth,
+        left: x,
+      };
+    });
+    yByLane.set(asset.type, y + h + assetGap);
+  });
+  const height = Math.max(620, Math.max(...[...yByLane.values()]) + 30);
+  const width = left + model.assetOrder.length * columnGap + assetWidth + 40;
+  return { left, top, columnGap, assetWidth, assets, fieldsByAsset, fieldPositions, width, height };
+}
+
+function drawFieldEdge(edgeLayer, edge, a, b) {
+  const leftToRight = a.right <= b.left;
+  const ax = leftToRight ? a.right : a.left;
+  const bx = leftToRight ? b.left : b.right;
+  const ay = a.y;
+  const by = b.y;
+  const mid = Math.max(44, Math.abs(bx - ax) / 2);
+  const d = `M ${ax} ${ay} C ${leftToRight ? ax + mid : ax - mid} ${ay}, ${leftToRight ? bx - mid : bx + mid} ${by}, ${bx} ${by}`;
+  const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
+  const active = selectedEdge?.id === edge.id || edge.source === selected || edge.target === selected;
+  path.setAttribute("class", `field-edge-path ${active ? "selected" : ""}`);
+  path.setAttribute("d", d);
+  path.setAttribute("fill", "none");
+  path.dataset.edgeId = edge.id;
+  path.addEventListener("click", () => selectEdge(edge));
+  edgeLayer.appendChild(path);
 }
 
 function pageHeader(title, description, actions = []) {
@@ -564,6 +806,165 @@ function relationRow(rel) {
   `;
 }
 
+function directRelationsFor(id) {
+  return graph.edges
+    .filter(edge => edge.source === id || edge.target === id)
+    .map(edge => {
+      const direction = edge.source === id ? "out" : "in";
+      const otherId = direction === "out" ? edge.target : edge.source;
+      return {
+        id: edge.id,
+        edge,
+        type: edge.type,
+        direction,
+        source: edge.source,
+        target: edge.target,
+        otherId,
+        otherLabel: labelOf(otherId),
+        otherType: typeOf(otherId),
+        description: edge.properties?.description || "",
+      };
+    })
+    .sort((a, b) => `${a.type}:${a.direction}:${a.otherLabel}`.localeCompare(`${b.type}:${b.direction}:${b.otherLabel}`));
+}
+
+function groupRelationsByType(relations) {
+  return relations.reduce((acc, rel) => {
+    acc[rel.type] ||= [];
+    acc[rel.type].push(rel);
+    return acc;
+  }, {});
+}
+
+function directRelationCard(rel) {
+  return `
+    <div class="direct-relation-card" data-id="${escapeAttr(rel.otherId)}">
+      <div class="relation-top">
+        ${badge(rel.otherType)}
+        <span>${escapeHtml(rel.direction === "out" ? "outgoing" : "incoming")}</span>
+      </div>
+      <strong>${escapeHtml(rel.otherLabel)}</strong>
+      <small>${escapeHtml(rel.otherId)}</small>
+      <div class="edge-pill">${escapeHtml(rel.direction === "out" ? `${labelOf(rel.source)} -> ${rel.type} -> ${labelOf(rel.target)}` : `${labelOf(rel.source)} -> ${rel.type} -> ${labelOf(rel.target)}`)}</div>
+      ${rel.description ? `<p>${escapeHtml(rel.description)}</p>` : ""}
+    </div>
+  `;
+}
+
+function directRelationMini(rel) {
+  return `
+    <div class="relation-row" data-id="${escapeAttr(rel.otherId)}">
+      <div class="relation-top">
+        ${badge(rel.otherType)}
+        <span>${escapeHtml(rel.direction)}</span>
+      </div>
+      <strong>${escapeHtml(rel.otherLabel)}</strong>
+      <small>${escapeHtml(rel.description || rel.otherId)}</small>
+    </div>
+  `;
+}
+
+function renderOneHopGraph(centerNode, relations) {
+  const board = document.getElementById("oneHopBoard");
+  const edgeLayer = document.getElementById("oneHopEdgeLayer");
+  if (!board || !edgeLayer) return;
+
+  const width = 1040;
+  const height = 620;
+  const center = { x: width / 2 - 92, y: height / 2 - 38 };
+  const positions = { [centerNode.id]: center };
+  const neighborIds = [...new Set(relations.map(rel => rel.otherId))];
+  const radiusX = 360;
+  const radiusY = 220;
+
+  neighborIds.forEach((id, index) => {
+    const angle = (-Math.PI / 2) + (index / Math.max(1, neighborIds.length)) * Math.PI * 2;
+    positions[id] = {
+      x: width / 2 + Math.cos(angle) * radiusX - 92,
+      y: height / 2 + Math.sin(angle) * radiusY - 38,
+    };
+  });
+
+  board.innerHTML = "";
+  edgeLayer.innerHTML = "";
+  board.style.width = `${width}px`;
+  board.style.height = `${height}px`;
+  edgeLayer.style.width = `${width}px`;
+  edgeLayer.style.height = `${height}px`;
+  edgeLayer.setAttribute("width", width);
+  edgeLayer.setAttribute("height", height);
+
+  relations.forEach(rel => {
+    const a = positions[rel.source];
+    const b = positions[rel.target];
+    if (!a || !b) return;
+    drawOneHopEdge(edgeLayer, rel, a, b);
+  });
+
+  [centerNode.id, ...neighborIds].forEach(id => {
+    const node = nodeById(id);
+    const pos = positions[id];
+    if (!node || !pos) return;
+    const card = document.createElement("div");
+    card.className = `one-hop-node ${id === centerNode.id ? "center" : ""} ${id === selected ? "selected" : ""}`;
+    card.style.left = `${pos.x}px`;
+    card.style.top = `${pos.y}px`;
+    card.dataset.id = id;
+    card.innerHTML = `
+      <div class="node-top">
+        <span class="node-dot" style="background:${color[node.type] || "#64748b"}"></span>
+        <div class="node-label">${escapeHtml(node.label)}</div>
+      </div>
+      <div class="node-desc">${escapeHtml(typeLabel[node.type] || node.type)}</div>
+    `;
+    board.appendChild(card);
+  });
+}
+
+function drawOneHopEdge(edgeLayer, rel, a, b) {
+  const ax = a.x + 92;
+  const ay = a.y + 38;
+  const bx = b.x + 92;
+  const by = b.y + 38;
+  const midX = (ax + bx) / 2;
+  const midY = (ay + by) / 2;
+  const edge = {
+    id: rel.id,
+    source: rel.source,
+    target: rel.target,
+    sourceOriginal: rel.source,
+    targetOriginal: rel.target,
+    type: rel.type,
+    descriptions: rel.description ? [rel.description] : [],
+  };
+
+  const line = document.createElementNS("http://www.w3.org/2000/svg", "line");
+  line.setAttribute("class", `one-hop-edge ${selectedEdge?.id === rel.id ? "selected" : ""}`);
+  line.setAttribute("x1", ax);
+  line.setAttribute("y1", ay);
+  line.setAttribute("x2", bx);
+  line.setAttribute("y2", by);
+  line.dataset.edgeId = rel.id;
+  line.addEventListener("click", () => {
+    selectedEdge = edge;
+    render();
+  });
+  edgeLayer.appendChild(line);
+
+  const label = document.createElementNS("http://www.w3.org/2000/svg", "text");
+  label.setAttribute("class", `one-hop-edge-label ${selectedEdge?.id === rel.id ? "selected" : ""}`);
+  label.setAttribute("x", midX);
+  label.setAttribute("y", midY - 5);
+  label.setAttribute("text-anchor", "middle");
+  label.textContent = rel.type;
+  label.dataset.edgeId = rel.id;
+  label.addEventListener("click", () => {
+    selectedEdge = edge;
+    render();
+  });
+  edgeLayer.appendChild(label);
+}
+
 function renderProfile() {
   if (selectedLogic) {
     titleEl.textContent = selectedLogic.label;
@@ -617,7 +1018,15 @@ function renderProfile() {
   badgeEl.style.color = color[node.type] || "#2563eb";
   descEl.textContent = node.properties?.description || data.description || "No description.";
 
+  if (["column", "api_field", "feedfile_field", "dashboard_field"].includes(node.type)) {
+    renderFieldProfile(node);
+    return;
+  }
+
   profileBodyEl.innerHTML = `
+    <div class="profile-section">
+      <button class="primary" data-action="asset" data-id="${escapeAttr(node.id)}">Open Asset Profile</button>
+    </div>
     <div class="profile-section">
       <h3>Overview</h3>
       ${overviewKv(node, data)}
@@ -633,6 +1042,56 @@ function renderProfile() {
     </div>
   `;
   wireClicks(profileBodyEl);
+}
+
+function renderFieldProfile(node) {
+  const parentId = parentOf(node.id);
+  const semantic = fieldSemanticLinks(node.id);
+  const lineage = fieldLineageLinks(node.id);
+  const quality = fieldQualityLinks(node.id);
+  profileBodyEl.innerHTML = `
+    <div class="profile-section">
+      <button class="primary" data-action="asset" data-id="${escapeAttr(node.id)}">Open Asset Profile</button>
+    </div>
+    <div class="profile-section">
+      <h3>Field Meaning</h3>
+      <div class="profile-card">
+        ${kv("Field ID", node.id)}
+        ${kv("Data Type", node.properties?.data_type || "Unknown")}
+        ${kv("Description", node.properties?.description || "No field description.")}
+      </div>
+    </div>
+    <div class="profile-section">
+      <h3>Parent Asset</h3>
+      ${connectedTile(nodeById(parentId))}
+    </div>
+    <div class="profile-section">
+      <h3>Semantic Mapping</h3>
+      ${semantic.map(fieldLinkRow).join("") || empty("No term/object mapping.")}
+    </div>
+    <div class="profile-section">
+      <h3>Field-Level Lineage</h3>
+      ${lineage.map(fieldLinkRow).join("") || empty("No field-level lineage.")}
+    </div>
+    <div class="profile-section">
+      <h3>Quality</h3>
+      ${quality.map(fieldLinkRow).join("") || empty("No field-level quality checks.")}
+    </div>
+  `;
+  wireClicks(profileBodyEl);
+}
+
+function fieldLinkRow(row) {
+  return `
+    <div class="relation-row" data-id="${escapeAttr(row.id)}">
+      <div class="relation-top">
+        ${badge(row.type)}
+        <span>${escapeHtml(row.direction ? `${row.direction} · ${row.relation}` : row.relation)}</span>
+      </div>
+      <strong>${escapeHtml(row.label || labelOf(row.id))}</strong>
+      <small>${escapeHtml(row.description || row.id)}</small>
+    </div>
+  `;
 }
 
 function overviewKv(node, data) {
@@ -1745,6 +2204,26 @@ function wireClicks(root) {
         return;
       }
       if (nodeById(id)) {
+        if (page === "browse") {
+          selected = id;
+          selectedEdge = null;
+          selectedLogic = null;
+          renderProfile();
+          renderSidebarResults();
+          updateSelectedClasses();
+          event.stopPropagation();
+          return;
+        }
+        if (page === "fields") {
+          selected = id;
+          selectedEdge = null;
+          selectedLogic = null;
+          renderProfile();
+          renderSidebarResults();
+          updateSelectedClasses();
+          event.stopPropagation();
+          return;
+        }
         if (element.classList.contains("relation-row") && page === "scenario") {
           const edge = findRenderedBusinessEdge(element.dataset.edgeSource, element.dataset.edgeTarget, element.dataset.edgeType);
           if (edge) {
@@ -1780,9 +2259,14 @@ function wireClicks(root) {
 }
 
 function updateSelectedClasses() {
-  document.querySelectorAll(".asset-item, .tile, .flow-card, .relation-row, .quality-row, .node-card, .overview-node").forEach(element => {
+  const selectedQualityTargets = typeOf(selected) === "quality_check" ? qualityTargetIds(selected) : new Set();
+  document.querySelectorAll(".asset-item, .tile, .flow-card, .relation-row, .quality-row, .node-card, .overview-node, .field-er-row, .field-asset-box, .quality-chip, .browse-node").forEach(element => {
     const canSelect = !element.classList.contains("connected-tile");
-    element.classList.toggle("selected", canSelect && (element.dataset.id === selected || element.dataset.logicId === selectedLogic?.id));
+    const idSelected = element.dataset.id && element.dataset.id === selected;
+    const logicSelected = element.dataset.logicId && element.dataset.logicId === selectedLogic?.id;
+    const qualityTargetSelected = element.dataset.id && selectedQualityTargets.has(element.dataset.id);
+    element.classList.toggle("selected", Boolean(canSelect && (idSelected || logicSelected || qualityTargetSelected)));
+    element.classList.toggle("quality-related", Boolean(qualityTargetSelected && !idSelected));
   });
   document.querySelectorAll(".graph-cluster.parent-scenario-cluster, .graph-cluster.sub-scenario-cluster").forEach(element => {
     element.classList.toggle("selected", element.dataset.id === selected);
@@ -1801,16 +2285,20 @@ function escapeAttr(value) {
   return escapeHtml(value).replace(/`/g, "&#096;");
 }
 
-document.getElementById("reset").onclick = () => {
-  searchEl.value = "";
-  expanded.clear();
-  activeTypes = new Set(graph.nodes.filter(node => !childTypes.has(node.type)).map(node => node.type));
-  page = "catalog";
-  selected = "scenario.margin_booking_settlement";
-  selectedEdge = null;
-  selectedLogic = null;
-  render();
-};
+const resetEl = document.getElementById("reset");
+if (resetEl) {
+  resetEl.onclick = () => {
+    searchEl.value = "";
+    expanded.clear();
+    activeTypes = new Set(graph.nodes.filter(node => !childTypes.has(node.type)).map(node => node.type));
+    browseTypes = new Set(graph.nodes.map(node => node.type));
+    page = "catalog";
+    selected = "scenario.margin_booking_settlement";
+    selectedEdge = null;
+    selectedLogic = null;
+    render();
+  };
+}
 
 searchEl.addEventListener("input", render);
 render();

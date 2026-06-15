@@ -47,8 +47,9 @@ table.columns[].quality_checks[]     -> checks
 view.columns[].quality_checks[]      -> checks
 object.properties[].maps_to[]        -> maps_to_property
 feedfile.fields[].related_nodes[]    -> relation named by field relation or related_to
-api.request_fields[].maps_to[]       -> maps_to_property
-api.response_fields[].maps_to[]      -> maps_to_property
+api.parameters[].related_nodes[]     -> relation named by field relation or related_to
+api.returns[].related_nodes[]        -> relation named by field relation or related_to
+api.returns[].lineage[]              -> field-level lineage into API response fields
 dashboard.displays[]                 -> displays
 scenario.child_scenarios[]           -> contains_scenario
 scenario.scenario_flow[]             -> scenario_flow[].relation or precedes by default
@@ -118,17 +119,38 @@ Technical data-flow edges from `lineage` remain in `graph.json` because Catalog 
 
 ## Field Map Projection
 
-Use a separate Field Map view for field-level information that is intentionally hidden from Catalog and Business Context by default.
+Use a separate Field Map view for field-level information that is intentionally hidden from Catalog and Business Context by default. The default layout should be global and asset-centric, like a database ER diagram:
+
+```text
+asset box
+  field
+  field
+  field
+
+field -> field lineage edges between asset boxes
+```
 
 Render:
 
 ```text
-field/column node
-parent asset
-term/object/scenario mappings from related_nodes
-field-level lineage from column/view/API/feedfile field lineage
-quality checks attached to the field or validating the field meaning
+all assets that contain fields
+all fields inside each asset box
+field descriptions and data types
+field-to-field lineage edges across assets, including dashboard displayed fields
+term/object/scenario mappings in the field profile
+quality checks in the field profile
+asset-level quality checks as chips inside the asset box
+field-level quality checks as badges on the field row
+cross-asset quality checks repeated as the same quality chip inside every involved asset box
 ```
+
+For `dashboard.displays[]`, create one derived `dashboard_field` node per displayed field and a field-level lineage edge:
+
+```text
+source column/API/view field -> dashboard_field
+```
+
+For standalone `quality_check.targets[]`, create `checks` edges to the target asset and, when `targets[].fields` is present, also create `checks` edges to each concrete field node. This lets Field Map repeat one cross-asset quality chip in all involved asset boxes and highlight all target fields when selected.
 
 Do not collapse `term -> column` into `term -> table` or `term -> api`. The exact field mapping is what makes the graph useful for Agent query and impact analysis.
 

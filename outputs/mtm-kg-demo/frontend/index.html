@@ -4,7 +4,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>MTM Data Governance Catalog</title>
-    <link rel="stylesheet" href="./style.css" />
+    <link rel="stylesheet" href="./style.css?v=one-hop-profile" />
   </head>
   <body>
     <header class="topbar">
@@ -23,27 +23,16 @@
 
     <aside class="sidebar">
       <nav class="primary-nav" aria-label="Primary">
+        <button data-page="browse">Browse</button>
         <button data-page="catalog" class="active">Catalog</button>
         <button data-page="scenario">Semantics</button>
         <button data-page="fields">Field Map</button>
         <button data-page="asset">Asset Profile</button>
-        <button data-page="lineage">Lineage</button>
-        <button data-page="quality">Quality</button>
       </nav>
 
-      <div class="side-section">
-        <div class="section-title">
-          <span>Browse</span>
-          <button id="reset">Reset</button>
-        </div>
-        <div id="typeFilters" class="filters"></div>
-      </div>
-
-      <div class="side-section fill">
-        <div class="section-title">
-          <span>Results</span>
-        </div>
-        <div id="assetList" class="asset-list"></div>
+      <div class="hidden-sidebar-data">
+        <div id="typeFilters"></div>
+        <div id="assetList"></div>
       </div>
     </aside>
 
@@ -60,9 +49,9 @@
       <div id="profileBody"></div>
     </aside>
 
-    <script src="./graph-data.js"></script>
-    <script src="./catalog-data.js"></script>
+    <script src="./graph-data.js?v=cross-quality"></script>
+    <script src="./catalog-data.js?v=cross-quality"></script>
     <script src="./views-data.js"></script>
-    <script src="./app.js"></script>
+    <script src="./app.js?v=one-hop-profile"></script>
   </body>
 </html>
