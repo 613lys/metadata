@@ -1,0 +1,56 @@
+id: business_entity.refund_decision
+type: business_entity
+name: Refund Decision
+description: Business decision that approves or rejects a refund request.
+term: term.approval_status
+owner: Refund Review Team
+tags:
+  - domain.commerce
+  - lifecycle.review
+properties:
+  - name: decision_id
+    description: Stable identifier for the refund decision.
+    semantic_role: identifier
+    maps_to:
+      - column.support.refund_decision.decision_id
+  - name: refund_request_id
+    description: Refund request being reviewed.
+    semantic_role: identifier
+    maps_to:
+      - column.support.refund_decision.refund_request_id
+  - name: approved_amount
+    description: Amount approved for payment refund.
+    semantic_role: measure
+    term: term.refund_amount
+    maps_to:
+      - column.support.refund_decision.approved_amount
+    constraints:
+      - type: comparison
+        severity: high
+        description: Approved amount cannot exceed the originally requested amount.
+        expression: approved_amount <= refund_request.requested_amount
+  - name: decision_status
+    description: Approved or rejected decision state.
+    semantic_role: status
+    term: term.approval_status
+    maps_to:
+      - column.support.refund_decision.decision_status
+mapped_assets:
+  - id: table.support.refund_decision
+    relation: IMPLEMENTED_BY
+    description: Refund decision table stores manual and automated review outcomes.
+related_nodes:
+  - id: business_entity.refund_request
+    relation: DERIVES_FROM
+    description: Refund decision is derived from review of the refund request and policy checks.
+constraints:
+  - type: state_transition
+    severity: critical
+    description: Payment refund can be created only for approved decisions.
+    expression: refund_decision.decision_status = 'approved'
+evidence:
+  - kind: source_code
+    ref: services/refunds/review_workflow.py
+verified:
+  status: false
+  reason: generated_from_skill_demo

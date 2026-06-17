@@ -1,0 +1,14 @@
+id: term.refund_amount
+type: term
+name: Refund Amount
+description: Monetary amount requested or approved for refund.
+definition: Refund amount is the currency value that may be returned to the customer after review and payment processing.
+aliases:
+  - refund value
+owner: Finance Data Steward
+evidence:
+  - kind: data_dictionary
+    ref: evidence/finance_metrics.md#refund_amount
+verified:
+  status: false
+  reason: needs_finance_confirmation

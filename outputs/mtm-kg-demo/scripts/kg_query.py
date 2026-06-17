@@ -133,9 +133,20 @@ def lineage(args: argparse.Namespace, direction: str) -> None:
     )
 
 
-def quality(args: argparse.Namespace) -> None:
+def constraints(args: argparse.Namespace) -> None:
     nodes, edges = graph_data()
     nodes_by_id = {node["id"]: node for node in nodes}
+    node = nodes_by_id.get(args.id, {})
+    direct_constraints = node.get("properties", {}).get("constraints") or []
+    edge_constraints = [
+        {
+            "edge": edge,
+            "constraints": edge.get("properties", {}).get("constraints"),
+        }
+        for edge in edges
+        if (edge.get("source") == args.id or edge.get("target") == args.id)
+        and edge.get("properties", {}).get("constraints")
+    ]
     check_edges = [
         edge
         for edge in edges
@@ -146,10 +157,16 @@ def quality(args: argparse.Namespace) -> None:
     print_json(
         {
             "node": args.id,
-            "quality_checks": [nodes_by_id.get(check_id, {"id": check_id}) for check_id in check_ids],
-            "edges": check_edges,
+            "constraints": direct_constraints,
+            "relationship_constraints": edge_constraints,
+            "legacy_quality_checks": [nodes_by_id.get(check_id, {"id": check_id}) for check_id in check_ids],
+            "legacy_quality_edges": check_edges,
         }
     )
+
+
+def quality(args: argparse.Namespace) -> None:
+    constraints(args)
 
 
 def fields_for_term(args: argparse.Namespace) -> None:
@@ -170,7 +187,7 @@ def fields_for_term(args: argparse.Namespace) -> None:
 def assets_for(args: argparse.Namespace, target_type: str) -> None:
     nodes, edges = graph_data()
     nodes_by_id = {node["id"]: node for node in nodes}
-    asset_types = {"table", "view", "feedfile", "api", "dashboard", "pipeline"}
+    asset_types = {"table", "view"}
     matches: dict[str, dict[str, Any]] = {}
     for edge in edges:
         if edge.get("target") != args.id and edge.get("source") != args.id:
@@ -181,6 +198,21 @@ def assets_for(args: argparse.Namespace, target_type: str) -> None:
             item = matches.setdefault(other_id, {"asset": other, "edges": []})
             item["edges"].append(edge)
     print_json({"node_type": target_type, "node": args.id, "assets": list(matches.values())})
+
+
+def entity_relationships(args: argparse.Namespace) -> None:
+    nodes, edges = graph_data()
+    nodes_by_id = {node["id"]: node for node in nodes}
+    entity_types = {"business_entity"}
+    relationships = []
+    for edge in edges:
+        if edge.get("source") != args.id and edge.get("target") != args.id:
+            continue
+        other_id = edge["target"] if edge["source"] == args.id else edge["source"]
+        other = nodes_by_id.get(other_id)
+        if other and other.get("type") in entity_types:
+            relationships.append({"entity": other, "edge": edge})
+    print_json({"entity": args.id, "relationships": relationships})
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -212,7 +244,11 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--depth", type=int, default=1)
     p.set_defaults(func=lambda args: lineage(args, "downstream"))
 
-    p = sub.add_parser("quality", help="Get quality checks for an asset or field.")
+    p = sub.add_parser("constraints", help="Get constraints for an entity, relationship, asset, or field.")
+    p.add_argument("id")
+    p.set_defaults(func=constraints)
+
+    p = sub.add_parser("quality", help="Legacy alias: get quality checks/constraints for an asset or field.")
     p.add_argument("id")
     p.set_defaults(func=quality)
 
@@ -220,13 +256,13 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("id")
     p.set_defaults(func=fields_for_term)
 
-    p = sub.add_parser("assets-for-scenario", help="Find assets linked to a scenario.")
+    p = sub.add_parser("assets-for-entity", help="Find assets linked to a business entity.")
     p.add_argument("id")
-    p.set_defaults(func=lambda args: assets_for(args, "scenario"))
+    p.set_defaults(func=lambda args: assets_for(args, "business_entity"))
 
-    p = sub.add_parser("assets-for-object", help="Find assets linked to an object.")
+    p = sub.add_parser("entity-relationships", help="Find business entity relationships.")
     p.add_argument("id")
-    p.set_defaults(func=lambda args: assets_for(args, "object"))
+    p.set_defaults(func=entity_relationships)
 
     return parser
 

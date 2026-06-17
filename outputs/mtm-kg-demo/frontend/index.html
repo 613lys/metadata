@@ -3,55 +3,150 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>MTM Data Governance Catalog</title>
-    <link rel="stylesheet" href="./style.css?v=one-hop-profile" />
+    <title>Metadata Catalog Explorer</title>
+    <link rel="stylesheet" href="./style.css?v=edge-arrows" />
   </head>
   <body>
     <header class="topbar">
       <div class="brand">
         <div class="mark">KG</div>
         <div>
-          <h1>MTM Data Governance Catalog</h1>
-          <p>Catalog first, graph when it explains lineage or semantics</p>
+          <h1>Metadata Catalog Explorer</h1>
+          <p>Search catalog metadata first, then open a filtered graph neighborhood.</p>
         </div>
       </div>
-      <div class="global-search">
-        <input id="search" type="search" placeholder="Search scenarios, assets, terms, APIs, fields..." />
-      </div>
+      <nav class="page-tabs" aria-label="Main views">
+        <button id="catalogTab" class="tab-button active" type="button">Catalog Search</button>
+        <button id="graphTab" class="tab-button" type="button">Graph Explorer</button>
+      </nav>
       <div id="stats" class="stats"></div>
     </header>
 
-    <aside class="sidebar">
-      <nav class="primary-nav" aria-label="Primary">
-        <button data-page="browse">Browse</button>
-        <button data-page="catalog" class="active">Catalog</button>
-        <button data-page="scenario">Semantics</button>
-        <button data-page="fields">Field Map</button>
-        <button data-page="asset">Asset Profile</button>
-      </nav>
+    <main id="catalogPage" class="page catalog-page">
+      <section class="search-sidebar">
+        <label class="field">
+          <span>Node name / keyword</span>
+          <input id="catalogSearchInput" type="search" placeholder="Search node, id, description, field, tag..." autocomplete="off" />
+        </label>
 
-      <div class="hidden-sidebar-data">
-        <div id="typeFilters"></div>
-        <div id="assetList"></div>
-      </div>
-    </aside>
+        <section class="filter-section">
+          <div class="section-title">Node Type</div>
+          <div id="catalogNodeTypeFilters" class="chip-list"></div>
+        </section>
 
-    <main class="workspace">
-      <div id="page"></div>
+        <section class="filter-section">
+          <div class="section-title">Edge Type</div>
+          <div id="catalogEdgeTypeFilters" class="chip-list"></div>
+          <p class="filter-help">No edge types selected means all edge types.</p>
+        </section>
+
+        <section class="filter-section">
+          <div class="section-title">Tags</div>
+          <div id="catalogTagFilters" class="chip-list"></div>
+          <p class="filter-help">All tags selected means no tag restriction.</p>
+        </section>
+
+        <button id="catalogResetButton" class="secondary" type="button">Reset search filters</button>
+      </section>
+
+      <section class="catalog-results-shell">
+        <div class="results-header">
+          <div>
+            <h2>Catalog Results</h2>
+            <p id="catalogResultSummary">Select a node or relationship to inspect its raw metadata.</p>
+          </div>
+        </div>
+        <div class="result-columns">
+          <section>
+            <div class="section-title">Nodes</div>
+            <div id="nodeResults" class="result-list"></div>
+          </section>
+          <section>
+            <div class="section-title">Edges</div>
+            <div id="edgeResults" class="result-list"></div>
+          </section>
+        </div>
+      </section>
+
+      <aside class="detail-panel">
+        <div class="detail-header">
+          <span id="catalogDetailBadge" class="type-pill">Nothing selected</span>
+          <h2 id="catalogDetailTitle">Select a result</h2>
+          <p id="catalogDetailDescription">The raw YAML-derived catalog record or graph edge will appear here.</p>
+          <button id="openGraphButton" class="primary" type="button" disabled>Open in graph</button>
+        </div>
+        <div id="catalogDetailBody" class="detail-body"></div>
+      </aside>
     </main>
 
-    <aside class="profile">
-      <div class="profile-header">
-        <span id="detailBadge" class="type-badge">node</span>
-        <h2 id="detailTitle">Select an asset</h2>
-        <p id="detailDescription">Click any catalog item, scenario, or graph node to inspect its context.</p>
-      </div>
-      <div id="profileBody"></div>
-    </aside>
+    <main id="graphPage" class="page graph-page hidden">
+      <aside class="graph-controls">
+        <button id="backToCatalogButton" class="secondary" type="button">Back to catalog</button>
 
-    <script src="./graph-data.js?v=cross-quality"></script>
-    <script src="./catalog-data.js?v=cross-quality"></script>
-    <script src="./views-data.js"></script>
-    <script src="./app.js?v=one-hop-profile"></script>
+        <section class="filter-section">
+          <div class="section-title">Focus</div>
+          <div id="graphFocusCard" class="focus-card"></div>
+        </section>
+
+        <section class="filter-section">
+          <div class="section-title">Max Depth</div>
+          <div class="depth-row">
+            <input id="depthInput" type="range" min="1" max="4" value="1" />
+            <strong id="depthValue">1</strong>
+          </div>
+        </section>
+
+        <section class="filter-section">
+          <div class="section-title">Node Type</div>
+          <div id="graphNodeTypeFilters" class="chip-list"></div>
+        </section>
+
+        <section class="filter-section">
+          <div class="section-title">Edge Type</div>
+          <div id="graphEdgeTypeFilters" class="chip-list"></div>
+          <p class="filter-help">No edge types selected means all edge types.</p>
+        </section>
+
+        <section class="filter-section">
+          <div class="section-title">Tags</div>
+          <div id="graphTagFilters" class="chip-list"></div>
+          <p class="filter-help">All tags selected means no tag restriction.</p>
+        </section>
+
+        <button id="graphResetButton" class="secondary" type="button">Reset graph filters</button>
+      </aside>
+
+      <section class="graph-shell">
+        <div class="graph-toolbar">
+          <div>
+            <span id="focusType" class="type-pill">node</span>
+            <h2 id="focusTitle">Graph Explorer</h2>
+            <p id="focusDescription">Choose max depth and filters to decide which nodes and edges are visible.</p>
+          </div>
+        <div class="toolbar-actions">
+            <button id="fitButton" type="button">Fit graph</button>
+            <button id="expandSelectedButton" type="button">Expand fields</button>
+        </div>
+      </div>
+      <div id="graphViewport" class="graph-viewport">
+          <svg id="edgeLayer" aria-hidden="true"></svg>
+          <div id="graphBoard" class="graph-board"></div>
+          <svg id="fieldEdgeLayer" aria-hidden="true"></svg>
+      </div>
+      </section>
+
+      <aside class="detail-panel graph-detail">
+        <div class="detail-header">
+          <span id="graphDetailBadge" class="type-pill">Graph detail</span>
+          <h2 id="graphDetailTitle">Select a node or edge</h2>
+          <p id="graphDetailDescription">Graph selection details appear here.</p>
+        </div>
+        <div id="graphDetailBody" class="detail-body"></div>
+      </aside>
+    </main>
+
+    <script src="./graph-data.js?v=edge-arrows"></script>
+    <script src="./catalog-data.js?v=edge-arrows"></script>
+    <script src="./app.js?v=edge-arrows"></script>
   </body>
 </html>

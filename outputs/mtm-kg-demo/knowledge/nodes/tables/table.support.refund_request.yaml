@@ -1,0 +1,63 @@
+id: table.support.refund_request
+type: table
+name: refund_request
+description: Stores customer-submitted refund requests and request status.
+owner: Support Data Engineering
+schema: support
+columns:
+  - name: refund_request_id
+    data_type: varchar
+    nullable: false
+    description: Primary key for the refund request.
+  - name: order_id
+    data_type: varchar
+    nullable: false
+    term: term.order_identifier
+    description: Customer order referenced by the refund request.
+    lineage:
+      upstream:
+        - id: column.sales.order_header.order_id
+          description: Refund request stores the order identifier from order header.
+      downstream:
+        - id: column.analytics.v_refund_lifecycle.order_id
+          description: Refund lifecycle view exposes order id for reporting.
+  - name: requested_amount
+    data_type: decimal
+    nullable: false
+    term: term.refund_amount
+    description: Amount requested by the customer.
+    lineage:
+      downstream:
+        - id: column.support.refund_decision.approved_amount
+          description: Decision approved amount is reviewed against requested amount.
+        - id: column.analytics.v_refund_lifecycle.requested_amount
+          description: Refund lifecycle view exposes requested amount.
+  - name: request_status
+    data_type: varchar
+    nullable: false
+    term: term.approval_status
+    description: Current request status.
+    lineage:
+      downstream:
+        - id: column.analytics.v_refund_lifecycle.request_status
+          description: Refund lifecycle view exposes request status.
+primary_key:
+  - refund_request_id
+lineage:
+  upstream:
+    - id: table.sales.order_header
+      relation: READS_FROM
+      description: Refund request records reference source orders.
+  downstream:
+    - id: table.support.refund_decision
+      relation: READS_FROM
+      description: Refund decisions read refund request records.
+    - id: view.analytics.v_refund_lifecycle
+      relation: READS_FROM
+      description: Refund lifecycle view reads refund requests.
+evidence:
+  - kind: db_schema
+    ref: evidence/schema_snapshots/support_refund_request.json
+verified:
+  status: false
+  reason: generated_from_skill_demo

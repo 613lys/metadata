@@ -1,0 +1,15 @@
+id: term.refund_request
+type: term
+name: Refund Request
+description: Customer request to return money for an order or order item.
+definition: A refund request records the customer's intent, requested amount, reason, and current review status.
+aliases:
+  - return request
+  - refund case
+owner: Commerce Operations
+evidence:
+  - kind: policy
+    ref: evidence/refund_policy.md
+verified:
+  status: false
+  reason: needs_domain_owner_confirmation

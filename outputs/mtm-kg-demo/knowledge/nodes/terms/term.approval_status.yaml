@@ -1,0 +1,14 @@
+id: term.approval_status
+type: term
+name: Approval Status
+description: Review state of a refund request or refund decision.
+definition: Approval status indicates whether a refund is pending review, approved, rejected, or cancelled.
+aliases:
+  - review status
+owner: Commerce Operations
+evidence:
+  - kind: source_code
+    ref: services/refunds/status_codes.py
+verified:
+  status: false
+  reason: generated_from_expected_status_model

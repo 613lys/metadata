@@ -22,6 +22,38 @@ def slug(value: str) -> str:
     return value.strip("_") or "edge"
 
 
+RELATION_ALIASES = {
+    "related_to": "RELATED_TO",
+    "uses_term": "HAS_TERM",
+    "contains": "CONTAINS",
+    "reads": "READS_FROM",
+    "read_from": "READS_FROM",
+    "derived_from": "DERIVES_FROM",
+    "field_lineage": "DERIVES_FROM",
+    "maps_to_property": "MAPS_TO",
+    "maps_to": "MAPS_TO",
+    "represented_by": "REPRESENTED_BY",
+    "implemented_by": "IMPLEMENTED_BY",
+    "creates": "CREATES",
+    "created_from": "DERIVES_FROM",
+    "references": "REFERENCES",
+    "requires": "DEPENDS_ON",
+    "depends_on": "DEPENDS_ON",
+    "values": "VALUES",
+    "settles": "SETTLES",
+    "reconciles_with": "RECONCILES_WITH",
+    "aggregates": "AGGREGATES",
+    "part_of": "PART_OF",
+}
+
+
+def normalize_relation(edge_type: str | None) -> str:
+    if not edge_type:
+        return "RELATED_TO"
+    key = str(edge_type).strip()
+    return RELATION_ALIASES.get(key.lower(), key.upper())
+
+
 def load_yaml_files() -> list[dict[str, Any]]:
     nodes: list[dict[str, Any]] = []
     for path in sorted(NODES_DIR.rglob("*.yaml")):
@@ -54,9 +86,11 @@ def add_edge(
     edge_type: str,
     description: str = "",
     source_field: str = "",
+    constraints: list[dict[str, Any]] | None = None,
 ) -> None:
     if not source or not target:
         return
+    edge_type = normalize_relation(edge_type)
     edge_id = f"edge.{slug(source)}.{slug(edge_type)}.{slug(target)}"
     properties: dict[str, Any] = {
         "inferred": True,
@@ -65,9 +99,11 @@ def add_edge(
         properties["description"] = description
     if source_field:
         properties["source_field"] = source_field
+    if constraints:
+        properties["constraints"] = constraints
     edges[edge_id] = {
         "id": edge_id,
-        "type": edge_type or "related_to",
+        "type": edge_type,
         "source": source,
         "target": target,
         "properties": properties,
@@ -82,8 +118,30 @@ def column_id_for(parent_id: str, column_name: str) -> str:
     return f"{parent_id}.{column_name}"
 
 
+def column_lineage_edges(current_column_id: str, lineage: Any) -> list[dict[str, str]]:
+    if not lineage:
+        return []
+    if isinstance(lineage, list):
+        return [
+            {"source": current_column_id, "target": item["source"], "description": item.get("description", "")}
+            for item in lineage
+            if item.get("source")
+        ]
+    rows: list[dict[str, str]] = []
+    for item in lineage.get("upstream") or []:
+        target = item.get("id") or item.get("source")
+        if target:
+            rows.append({"source": current_column_id, "target": target, "description": item.get("description", "")})
+    for item in lineage.get("downstream") or []:
+        source = item.get("id") or item.get("target")
+        if source:
+            rows.append({"source": source, "target": current_column_id, "description": item.get("description", "")})
+    return rows
+
+
 def search_text_for(item: dict[str, Any]) -> str:
-    parts: list[str] = [item.get("id", ""), item.get("name", ""), item.get("description", "")]
+    parts: list[str] = [item.get("id", ""), item.get("name", ""), item.get("description", ""), item.get("term", "")]
+    parts.extend(item.get("tags") or [])
     for logic in item.get("business_logic") or []:
         if isinstance(logic, str):
             parts.append(logic)
@@ -91,6 +149,9 @@ def search_text_for(item: dict[str, Any]) -> str:
             parts.extend([logic.get("name", ""), logic.get("description", "")])
     for rel in item.get("related_nodes") or []:
         parts.extend([rel.get("id", ""), rel.get("relation", ""), rel.get("description", "")])
+    for prop in item.get("properties") or []:
+        parts.extend([prop.get("name", ""), prop.get("description", ""), prop.get("term", ""), prop.get("semantic_role", "")])
+        parts.extend(prop.get("allowed_values") or [])
     for qc in item.get("quality_checks") or []:
         parts.extend([qc.get("name", ""), qc.get("check_type", ""), str(qc.get("expectation", ""))])
         for target in qc.get("validates") or []:
@@ -98,6 +159,8 @@ def search_text_for(item: dict[str, Any]) -> str:
                 parts.append(target)
             else:
                 parts.extend([target.get("id", ""), target.get("description", "")])
+    for constraint in item.get("constraints") or []:
+        parts.extend([constraint.get("type", ""), constraint.get("description", ""), constraint.get("expression", ""), constraint.get("severity", "")])
     return " ".join(str(part) for part in parts if part)
 
 
@@ -117,6 +180,9 @@ def compile_graph(raw_nodes: list[dict[str, Any]]) -> tuple[dict[str, Any], dict
             {
                 "description": item.get("description", ""),
                 "source_file": item.get("_source_file"),
+                "term": item.get("term"),
+                "tags": item.get("tags"),
+                "constraints": item.get("constraints"),
             },
         )
 
@@ -128,25 +194,55 @@ def compile_graph(raw_nodes: list[dict[str, Any]]) -> tuple[dict[str, Any], dict
                 graph_edges,
                 node_id,
                 rel.get("id"),
-                rel.get("relation") or "related_to",
+                rel.get("relation") or "RELATED_TO",
                 rel.get("description", ""),
                 "related_nodes",
+                rel.get("constraints"),
             )
 
-        for child in item.get("child_scenarios") or []:
-            add_edge(graph_edges, node_id, child, "contains_scenario", "Parent scenario contains child scenario.", "child_scenarios")
+        if item.get("term"):
+            add_edge(graph_edges, node_id, item.get("term"), "HAS_TERM", f"{item['name']} is defined by {item.get('term')}.", "term")
 
-        for flow in item.get("scenario_flow") or []:
-            add_edge(
-                graph_edges,
-                flow.get("source"),
-                flow.get("target"),
-                flow.get("relation") or "precedes",
-                flow.get("description", ""),
-                "scenario_flow",
-            )
+        for asset in item.get("mapped_assets") or []:
+            if isinstance(asset, str):
+                add_edge(graph_edges, node_id, asset, "REPRESENTED_BY", f"{item['name']} is represented by {asset}.", "mapped_assets")
+            else:
+                add_edge(
+                    graph_edges,
+                    node_id,
+                    asset.get("id"),
+                    asset.get("relation") or "REPRESENTED_BY",
+                    asset.get("description", ""),
+                    "mapped_assets",
+                    asset.get("constraints"),
+                )
 
-        for direction, default_type, reverse in (("upstream", "lineage", True), ("downstream", "lineage", False)):
+        if item.get("type") == "business_entity":
+            for prop in item.get("properties") or []:
+                prop_name = prop.get("name")
+                if not prop_name:
+                    continue
+                prop_id = f"{node_id}.{prop_name}"
+                add_node(
+                    graph_nodes,
+                    prop_id,
+                    f"{item['type']}_property",
+                    prop_name,
+                    {
+                        "description": prop.get("description", ""),
+                        "parent": node_id,
+                        "semantic_role": prop.get("semantic_role"),
+                        "allowed_values": prop.get("allowed_values"),
+                        "constraints": prop.get("constraints"),
+                    },
+                )
+                add_edge(graph_edges, node_id, prop_id, "CONTAINS", f"{item['name']} has property {prop_name}.", "properties")
+                if prop.get("term"):
+                    add_edge(graph_edges, prop_id, prop.get("term"), "HAS_TERM", f"{prop_name} is defined by {prop.get('term')}.", "properties.term")
+                for target in prop.get("maps_to") or []:
+                    add_edge(graph_edges, prop_id, target, "MAPS_TO", f"{prop_name} maps to {target}.", "properties.maps_to")
+
+        for direction, default_type, reverse in (("upstream", "READS_FROM", False), ("downstream", "READS_FROM", True)):
             for rel in (item.get("lineage") or {}).get(direction) or []:
                 other = rel.get("id")
                 if reverse:
@@ -170,12 +266,11 @@ def compile_graph(raw_nodes: list[dict[str, Any]]) -> tuple[dict[str, Any], dict
                     "parent": node_id,
                 },
             )
-            add_edge(graph_edges, node_id, col_id, "contains", f"{item['name']} contains column {col_name}.", "columns")
-            for rel in column.get("related_nodes") or []:
-                add_edge(graph_edges, col_id, rel.get("id"), rel.get("relation") or "related_to", rel.get("description", ""), "columns.related_nodes")
-            for lineage in column.get("lineage") or []:
-                src = lineage.get("source")
-                add_edge(graph_edges, src, col_id, "field_lineage", lineage.get("description", ""), "columns.lineage")
+            add_edge(graph_edges, node_id, col_id, "CONTAINS", f"{item['name']} contains column {col_name}.", "columns")
+            if column.get("term"):
+                add_edge(graph_edges, col_id, column.get("term"), "HAS_TERM", f"{col_name} is defined by {column.get('term')}.", "columns.term")
+            for lineage in column_lineage_edges(col_id, column.get("lineage")):
+                add_edge(graph_edges, lineage["source"], lineage["target"], "DERIVES_FROM", lineage.get("description", ""), "columns.lineage")
 
         for field_group in ("fields", "request_fields", "response_fields", "returns"):
             for field in item.get(field_group) or []:
@@ -188,16 +283,18 @@ def compile_graph(raw_nodes: list[dict[str, Any]]) -> tuple[dict[str, Any], dict
                     {
                         "description": field.get("description", ""),
                         "data_type": field.get("data_type"),
+                        "semantic_role": field.get("semantic_role"),
+                        "constraints": field.get("constraints"),
                         "parent": node_id,
                     },
                 )
-                add_edge(graph_edges, node_id, field_id, "contains", f"{item['name']} contains field {field.get('name')}.", field_group)
+                add_edge(graph_edges, node_id, field_id, "CONTAINS", f"{item['name']} contains field {field.get('name')}.", field_group)
                 for rel in field.get("related_nodes") or []:
-                    add_edge(graph_edges, field_id, rel.get("id"), rel.get("relation") or "related_to", rel.get("description", ""), f"{field_group}.related_nodes")
+                    add_edge(graph_edges, field_id, rel.get("id"), rel.get("relation") or "RELATED_TO", rel.get("description", ""), f"{field_group}.related_nodes")
                 for target in field.get("maps_to") or []:
-                    add_edge(graph_edges, field_id, target, "maps_to_property", f"{field.get('name')} maps to {target}.", f"{field_group}.maps_to")
+                    add_edge(graph_edges, field_id, target, "MAPS_TO", f"{field.get('name')} maps to {target}.", f"{field_group}.maps_to")
                 for lin in field.get("lineage") or []:
-                    add_edge(graph_edges, lin.get("source"), field_id, "field_lineage", lin.get("description", ""), f"{field_group}.lineage")
+                    add_edge(graph_edges, field_id, lin.get("source"), "DERIVES_FROM", lin.get("description", ""), f"{field_group}.lineage")
 
         for target in item.get("displays") or []:
             field_name = target.split(".")[-1]
@@ -213,8 +310,8 @@ def compile_graph(raw_nodes: list[dict[str, Any]]) -> tuple[dict[str, Any], dict
                     "source": target,
                 },
             )
-            add_edge(graph_edges, node_id, field_id, "contains", f"{item['name']} contains dashboard field {field_name}.", "displays")
-            add_edge(graph_edges, target, field_id, "field_lineage", f"{item['name']} displays {target}.", "displays")
+            add_edge(graph_edges, node_id, field_id, "CONTAINS", f"{item['name']} contains dashboard field {field_name}.", "displays")
+            add_edge(graph_edges, field_id, target, "DERIVES_FROM", f"{item['name']} displays {target}.", "displays")
             add_edge(graph_edges, node_id, target, "displays", f"{item['name']} displays {target}.", "displays")
 
         if item.get("type") == "quality_check":
@@ -271,68 +368,54 @@ def compile_graph(raw_nodes: list[dict[str, Any]]) -> tuple[dict[str, Any], dict
 
     lineage = {"upstream": {}, "downstream": {}}
     for edge in graph["edges"]:
-        if edge["type"] in {"lineage", "consumes", "produces", "feeds", "reads", "writes", "serves", "derived_from", "field_lineage"}:
-            lineage["downstream"].setdefault(edge["source"], []).append(edge["target"])
-            lineage["upstream"].setdefault(edge["target"], []).append(edge["source"])
+        if edge["type"] in {
+            "lineage",
+            "consumes",
+            "produces",
+            "feeds",
+            "reads",
+            "writes",
+            "serves",
+            "derived_from",
+            "field_lineage",
+            "READS_FROM",
+            "WRITES_TO",
+            "UPSTREAM_OF",
+            "DOWNSTREAM_OF",
+            "DERIVES_FROM",
+        }:
+            if edge["type"] in {"READS_FROM", "DERIVES_FROM"}:
+                lineage["downstream"].setdefault(edge["target"], []).append(edge["source"])
+                lineage["upstream"].setdefault(edge["source"], []).append(edge["target"])
+            else:
+                lineage["downstream"].setdefault(edge["source"], []).append(edge["target"])
+                lineage["upstream"].setdefault(edge["target"], []).append(edge["source"])
 
     return graph, catalog, lineage
 
 
 def build_curated_views(graph: dict[str, Any]) -> dict[str, Any]:
-    node_ids = {node["id"] for node in graph["nodes"]}
-
-    def existing(ids: list[str]) -> list[str]:
-        return [node_id for node_id in ids if node_id in node_ids]
+    business_entities = [node["id"] for node in graph["nodes"] if node["type"] == "business_entity"]
+    assets = [node["id"] for node in graph["nodes"] if node["type"] in {"table", "view"}]
+    terms = [node["id"] for node in graph["nodes"] if node["type"] == "term"]
 
     return {
         "views": [
             {
-                "id": "overview",
-                "name": "Overview",
-                "description": "Parent scenario and its direct business context.",
+                "id": "semantic_overview",
+                "name": "Semantic Overview",
+                "description": "Business entities, glossary terms, and mapped physical assets.",
                 "mode": "all",
-                "focus": "scenario.margin_booking_settlement",
-                "pinned_nodes": existing(
-                    [
-                        "scenario.margin_booking_settlement",
-                        "scenario.mtm_valuation",
-                        "scenario.margin_calculation",
-                        "scenario.booking",
-                        "scenario.settlement",
-                    ]
-                ),
+                "focus": business_entities[0] if business_entities else None,
+                "pinned_nodes": business_entities[:6] + terms[:6],
             },
             {
-                "id": "lineage",
-                "name": "Lineage",
-                "description": "Operational data flow from feed to dashboard.",
+                "id": "physical_lineage",
+                "name": "Physical Lineage",
+                "description": "Direct table/view and column dependencies compiled from YAML lineage.",
                 "mode": "lineage",
-                "focus": "scenario.margin_booking_settlement",
-                "pinned_nodes": [],
-            },
-            {
-                "id": "mtm_data_mode",
-                "name": "MTM Data Mode",
-                "description": "Data assets that implement the MTM term.",
-                "mode": "data",
-                "focus": "term.mtm",
-                "pinned_nodes": existing(["term.mtm", "table.risk.mtm_valuation", "column.risk.mtm_valuation.mtm_value"]),
-            },
-            {
-                "id": "settlement_data_mode",
-                "name": "Settlement Data Mode",
-                "description": "Assets involved in settlement monitoring.",
-                "mode": "data",
-                "focus": "scenario.settlement",
-                "pinned_nodes": existing(
-                    [
-                        "scenario.settlement",
-                        "table.booking.booking_order",
-                        "table.settlement.settlement_instruction",
-                        "api.margin.get_margin_settlement_summary",
-                        "dashboard.powerbi.margin_operations",
-                    ]
-                ),
+                "focus": assets[0] if assets else None,
+                "pinned_nodes": assets[:8],
             },
         ]
     }

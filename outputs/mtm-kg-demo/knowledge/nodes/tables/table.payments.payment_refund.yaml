@@ -1,0 +1,56 @@
+id: table.payments.payment_refund
+type: table
+name: payment_refund
+description: Stores refund transactions submitted to the payment processor.
+owner: Payments Data Engineering
+schema: payments
+columns:
+  - name: payment_refund_id
+    data_type: varchar
+    nullable: false
+    description: Primary key for the payment refund transaction.
+  - name: decision_id
+    data_type: varchar
+    nullable: false
+    description: Refund decision that authorized the transaction.
+    lineage:
+      upstream:
+        - id: column.support.refund_decision.decision_id
+          description: Payment refund references the approved decision.
+  - name: refunded_amount
+    data_type: decimal
+    nullable: false
+    term: term.refund_amount
+    description: Amount sent to the payment processor.
+    lineage:
+      upstream:
+        - id: column.support.refund_decision.approved_amount
+          description: Refunded amount is based on approved amount.
+      downstream:
+        - id: column.analytics.v_refund_lifecycle.refunded_amount
+          description: Refund lifecycle view exposes refunded amount.
+  - name: payment_status
+    data_type: varchar
+    nullable: false
+    description: Processor status for the refund transaction.
+    lineage:
+      downstream:
+        - id: column.analytics.v_refund_lifecycle.payment_status
+          description: Refund lifecycle view exposes payment status.
+primary_key:
+  - payment_refund_id
+lineage:
+  upstream:
+    - id: table.support.refund_decision
+      relation: READS_FROM
+      description: Payment refund records are created from approved decisions.
+  downstream:
+    - id: view.analytics.v_refund_lifecycle
+      relation: READS_FROM
+      description: Refund lifecycle view reads payment refund status.
+evidence:
+  - kind: db_schema
+    ref: evidence/schema_snapshots/payments_payment_refund.json
+verified:
+  status: false
+  reason: generated_from_skill_demo

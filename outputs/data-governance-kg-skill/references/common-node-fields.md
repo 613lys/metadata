@@ -14,15 +14,23 @@ description:
 ## Optional Fields
 
 ```yaml
+owner:
 tags: []
 aliases: []
+evidence: []
+verified:
+  status:
+  by:
+  at:
+  reason:
 source:
   kind:
   system:
   captured_at:
 ```
 
-Only add `owner`, `domain`, `confidence`, `evidence`, or `verified` when they are meaningful for that node. Do not add them mechanically.
+Use `owner`, `evidence`, and `verified` when the node or relationship is important for governance, user trust, or Agent decision-making. They are especially useful on business entities, tables, views, lineage entries, constraints, and inferred mappings.
+
 Only add `tags`, `aliases`, or `source` when UI/Agent will actually use them.
 
 ## Source Rules
@@ -31,14 +39,25 @@ Generate technical facts from systems, not guesses:
 
 ```text
 table/view/column names and data types -> database catalog, dbt catalog, migrations, ORM metadata
-feed file fields -> file contract, sample file, ingestion config
-API request/response fields -> OpenAPI, route code, controller code, protobuf/GraphQL schema
-dashboard fields -> BI export, dashboard config, embedded SQL
-pipeline inputs/outputs -> Airflow/Dagster/dbt/Spark/SQL/job config
 semantic definitions -> documents, user input, interviews, confirmed business knowledge
 ```
 
 Agent-authored descriptions are allowed, but they should be concise and based on evidence or user confirmation.
+
+## Owner
+
+Owner identifies who is accountable for the meaning or correctness of a node. Keep it as a simple string so it is easy for Agents and humans to maintain.
+
+```yaml
+owner: Commerce Operations
+```
+
+Guidance:
+
+- For `business_entity`, owner is the business owner accountable for the entity definition.
+- For `table` and `view`, owner is the data or system owner accountable for the physical asset.
+- For `term`, owner is optional and should be used only when glossary stewardship matters.
+- For derived `column` and `business_entity_property`, prefer inheriting owner from the parent unless a field has a distinct steward.
 
 ## Evidence
 
@@ -47,16 +66,18 @@ Evidence explains where a claim came from. It is not the same as verification.
 ```yaml
 evidence:
   - kind: db_schema
-    ref: evidence/schema_snapshots/risk_db_2026_06_14.json
+    ref: evidence/schema_snapshots/commerce_db_2026_06_14.json
   - kind: code_ref
-    file: jobs/margin_calculation.sql
+    file: jobs/refund_lifecycle.sql
     line:
   - kind: doc
-    file: docs/margin_process.md
+    file: docs/refund_policy.md
   - kind: human_confirmation
     by: user
     at: "2026-06-14"
 ```
+
+Use evidence for descriptions, lineage, mappings, constraints, and any relationship that the Agent inferred from code, schema, documents, or user confirmation.
 
 ## Verification
 
@@ -75,48 +96,46 @@ verified:
   at: "2026-06-14"
 ```
 
+Guidance:
+
+- `verified.status: false` means useful but not yet trusted.
+- `verified.status: true` means the claim was confirmed by a user, owner, source system, test, or trusted process.
+- `verified.reason` should explain why an unverified claim is still present, such as `inferred_from_schema`, `inferred_from_sql`, or `needs_owner_confirmation`.
+
 ## related_nodes
 
-Use `related_nodes` to connect any node to any other node. This replaces type-specific fields such as `related_terms`, `related_objects`, or `related_assets`.
+Use `related_nodes` to connect any node to any other node. This replaces type-specific fields such as `related_terms`, `related_entities`, or `related_assets`.
 
 ```yaml
 related_nodes:
-  - id: term.mtm
-    description: This scenario uses MTM as the valuation concept.
+  - id: business_entity.customer_order
+    relation: REFERENCES
+    description: This refund request references the customer order being refunded.
 ```
 
-The `description` is more important than the relation name. Add `relation` only when a precise relation helps graph queries. If omitted, the graph builder may use `related_to`.
+The `description` is more important than the relation name. Add `relation` only when a precise relation helps graph queries. If omitted, the graph builder may use `RELATED_TO`.
 
-Common relations:
+Common relations use uppercase snake case and must come from `references/relation-types.md`. Common current-scope relations:
 
 ```text
-uses
-involves
-describes
-maps_to
-represents
-specializes
-broader_than
-narrower_than
-equivalent_to
-differs_from
-supports
-governed_by
-owned_by
-tagged_as
-enables
-produces_input_for
-uses_term
-produces
-consumes
-defines
-qualifies
-explains
-derived_from
-created_from
-creates
-implemented_by
-served_by
+CREATES
+REFERENCES
+DEPENDS_ON
+DERIVES_FROM
+AGGREGATES
+RECONCILES_WITH
+SETTLES
+VALUES
+PART_OF
+CHILD_OF
+RELATED_TO
+HAS_TERM
+CONTAINS
+READS_FROM
+WRITES_TO
+MAPS_TO
+IMPLEMENTED_BY
+REPRESENTED_BY
 ```
 
 ## lineage
@@ -126,42 +145,41 @@ Use `lineage` inside the node that knows the relationship.
 ```yaml
 lineage:
   upstream:
-    - id: table.risk.mtm_valuation
-      description: Margin calculation reads MTM valuation data.
-  downstream:
-    - id: api.booking.create_order
-      description: Booking API uses calculated margin values.
+    - id: table.support.refund_request
+      description: Refund lifecycle view reads refund request data.
 ```
 
-## quality_checks
+## constraints
 
-Put quality checks in the executable node that owns the check: table, view, column, feed file, pipeline, API, or dashboard. The check should point to the concrete asset or field that can actually be tested.
-
-Use `validates` to connect the check back to the business meaning it protects. `validates` should usually reference `scenario`, `object`, or `term` nodes.
+Put constraints on the business entity, business property, relationship/action, table, or view that the rule governs. Constraints are not standalone graph nodes.
 
 ```yaml
-quality_checks:
-  - name: Disputed Booking Must Not Be Settled
-    check_type: conditional_expression
+constraints:
+  - type: state_transition
+    description: Payment refund can be created only after a refund decision is approved.
     fields:
-      - dispute_status
-      - settlement_status
-    expectation:
-      if: dispute_status == "disputed"
-      then: settlement_status != "settled"
+      - decision_status
+      - payment_status
     severity: critical
-    validates:
-      - id: object.booking_order
-        description: Booking order status controls whether settlement can proceed.
-      - id: term.undisputed
-        description: Undisputed status is required before settlement.
+    expression: if decision_status == "approved" then payment_status may be "submitted"
 ```
 
-Graph meaning:
+Common constraint types:
 
 ```text
-quality_check -> asset/field       checks
-quality_check -> scenario/object/term   validates
+not_null
+unique
+accepted_values
+range
+regex
+referential_integrity
+relationship_required
+cardinality
+state_transition
+conditional_required
+mutual_exclusion
+reconciliation
+freshness
 ```
 
-Do not put executable quality checks only on `object` or `term` nodes. Objects and terms describe business meaning; assets and fields are where checks can run.
+For relationship/action constraints, put `constraints` inside the relevant `related_nodes[]` entry. Do not put business constraints on physical columns; describe schema-level facts in the column `description` and put business validation on the mapped business entity property.

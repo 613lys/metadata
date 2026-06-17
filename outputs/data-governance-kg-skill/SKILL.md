@@ -1,30 +1,40 @@
 ---
 name: data-governance-kg
 description: |
-  Build and query a lightweight data-governance knowledge graph from scenarios,
-  documents, database schemas, code, feed files, APIs, dashboards, and user
-  confirmation. Use YAML node files as source of truth and generate graph.json
-  for UI and Agent query. There is no edge YAML; lineage, quality, and semantic
-  relationships live inside node YAML files and are compiled into graph edges.
+  Build and query a lightweight data-governance semantic graph for a data
+  domain. Model business entities, glossary terms, physical tables, physical
+  views, derived columns, derived business properties, field mappings, direct
+  lineage, constraints, and verified descriptions. YAML node files are the
+  source of truth; generated JSON indexes power the UI and Agent queries.
 ---
 
-# Data Governance Knowledge Graph
+# Data Governance Semantic Graph
 
-Use this skill to create a data-governance graph with:
+Use this skill when a user wants an Agent-maintained data catalog and semantic graph without deploying a full metadata platform.
+
+The graph models a data domain at two levels:
+
+```text
+semantic level
+  business_entity
+  term
+  business_entity_property  derived from business_entity.properties[]
+
+physical data level
+  table
+  view
+  column                    derived from table/view columns[]
+```
+
+Top-level YAML files exist only for:
 
 ```text
 knowledge/
   nodes/
-    scenarios/
+    business_entities/
     terms/
-    objects/
     tables/
     views/
-    feedfiles/
-    apis/
-    dashboards/
-    pipelines/
-    quality_checks/
   indexes/
     graph.json
     catalog.json
@@ -32,157 +42,249 @@ knowledge/
     lineage.json
 ```
 
-YAML node files are the source of truth. Generated JSON indexes are query and UI artifacts. Do not create `edges.yaml`; all graph edges are generated from fields embedded in node YAML.
+`business_entity_property` and `column` are graph nodes generated from inline YAML fields. They are not separate YAML files unless a project explicitly needs very large independent field profiles.
 
-Generate node YAML from real sources whenever possible:
+## Source Of Truth
+
+YAML node files are the source of truth. Generated JSON files are read models for UI and Agent query.
 
 ```text
-tables/views/columns  -> database catalogs, information_schema, dbt catalog, migrations, ORM metadata
-feedfiles             -> file contracts, samples, ingestion configs
-apis                  -> OpenAPI, routes, controllers, protobuf/GraphQL schemas
-dashboards            -> BI exports, dashboard configs, embedded SQL
-pipelines             -> Airflow/Dagster/dbt/Spark/SQL/job configs
-terms/objects/scenarios -> documents, user input, interviews, confirmed business knowledge
+knowledge/nodes/**/*.yaml        source of truth
+knowledge/indexes/*.json         generated query indexes
+frontend/graph-data.js           generated browser data wrapper
+frontend/catalog-data.js         generated browser data wrapper
 ```
 
-## Core Workflow
+Do not create edge YAML. Edges are compiled from fields embedded inside node YAML.
 
-Build the graph in two passes: create the technical skeleton from real systems first, then add business meaning from scenarios.
+## Modeling Workflow
 
-1. Inventory technical sources and create skeleton YAML for `table`, `view`, `feedfile`, `api`, `dashboard`, and `pipeline`.
-   - Read table/view/column names, data types, nullability, keys, and view SQL from database catalogs, dbt catalog, migrations, or ORM metadata.
-   - Read API parameters and response fields from OpenAPI, route/controller code, GraphQL/protobuf schemas, query builders, or tests.
-   - Read feed file fields from file contracts, sample files, ingestion configs, or pipeline code.
-   - Read dashboard displayed fields from BI exports, dashboard configs, semantic model files, or embedded SQL.
-   - Read pipeline inputs/outputs from Airflow/Dagster/dbt/Spark/SQL/job configs.
-   - At this stage, do not invent business descriptions. Use conservative placeholders only when the field is visible in source but the meaning is unknown.
-2. Add direct technical lineage from source evidence.
-   - Keep only direct runtime dependencies. For example, `feedfile -> pipeline -> table`, not `feedfile -> table`.
-   - Prefer writing lineage on the node that performs the action: pipeline reads/writes, API reads/serves, view reads.
-3. Create parent and child `scenario` nodes from the user's business flow.
-   - Parent scenarios group the business journey.
-   - Child scenarios represent sub-processes with distinct assets, business rules, handoffs, or quality concerns.
-   - Use `scenario_flow` for scenario-to-scenario handoffs, and write a description for why the handoff exists.
-4. Use scenarios to enrich the skeleton top down.
-   - Link each scenario to the assets that implement or support it with `related_nodes`.
-   - Fill asset and field descriptions only when they are supported by source evidence or user confirmation.
-   - Ask the user when a description, owner, scenario boundary, lineage edge, or business rule is uncertain.
-5. Infer candidate `term` and `object` nodes from scenarios and assets, then ask the user to confirm.
-   - A `term` is a business word or concept that needs definition, aliases, or field interpretation.
-   - An `object` is a business entity with properties, lifecycle, status, or representation in assets.
-   - It is acceptable to draft candidate terms/objects from scenario text, table names, API response fields, and dashboard labels, but do not mark ambiguous meanings as verified without user confirmation.
-6. Infer candidate quality checks, then ask the user to confirm and add missing checks.
-   - Start with obvious checks from schemas and code: not-null, enum, range, freshness, required parameter, pipeline success.
-   - Propose business checks from scenario logic: state transitions, cross-field consistency, cross-table completeness, reconciliation.
-   - Attach executable checks to assets/fields; use `validates` to explain which scenario/object/term the rule protects.
-7. Build `graph.json` by compiling embedded YAML relationships into nodes and edges. Generated JSON is a UI/Agent query artifact, not the source of truth.
+Build a new data-domain graph in this order.
 
-When information is uncertain, leave the node useful but honest:
+1. Identify business entities.
+   - A `business_entity` is a real business thing the organization reasons about: something with identity, lifecycle, status, important measures, or relationships to other business things.
+   - Examples: Customer Order, Refund Request, Refund Decision, Payment Refund.
+   - Business processes are represented by relationships among business entities, not by a separate process node type.
+   - Start from user-provided business descriptions, business documents, data product descriptions, metric definitions, operational workflows, and domain interviews.
+
+2. Define entity properties.
+   - Add only properties that truly belong to the business entity.
+   - Use `semantic_role` for each important property: `identifier`, `dimension`, `time_dimension`, `fact`, `measure`, or `status`.
+   - Do not mirror every table column into the entity. Purely technical columns remain only in table/view YAML.
+
+3. Create glossary terms.
+   - A `term` defines meaning for a business entity, business property, or physical field.
+   - Use `business_entity.term` for the entity-level glossary concept.
+   - Use `business_entity.properties[].term` for property-level concepts.
+   - Use `table/view.columns[].term` for field-level concepts.
+   - Prefer precise field-level term mappings over broad table-level mappings.
+
+4. Add constraints.
+   - Constraints are properties of the thing they govern: business entity, business property, relationship/action, table, or view.
+   - Use constraints for quality, validity, lifecycle rules, referential rules, reconciliation, accepted values, ranges, and freshness.
+   - Start with business constraints from entity definitions and lifecycle rules before adding schema-derived checks.
+
+5. Inventory physical data assets.
+   - Create `table` and `view` YAML from database catalogs, `information_schema`, dbt catalog, migrations, ORM metadata, or SQL definitions.
+   - Read column names, data types, nullability, keys, and view SQL from source systems.
+   - Do not invent physical column names or data types.
+   - Use conservative descriptions when source evidence is weak.
+
+6. Map semantics to physical data.
+   - Use `business_entity.mapped_assets[]` to connect a business entity to the table/view that stores or represents it.
+   - Use `business_entity.properties[].maps_to[]` to connect a business property to concrete columns.
+   - Map only meaningful properties. Technical implementation fields can remain unmapped.
+
+7. Add direct relationships and lineage.
+   - Use `related_nodes[]` for semantic relationships between business entities or terms.
+   - Use `lineage` for direct table/view and column dependencies.
+   - Keep relation labels coarse and selected from `references/relation-types.md`.
+   - Put business conditions in `description` and `constraints`, not in custom relation names.
+
+8. Add governance trust fields.
+   - Add `owner` when a business or data steward is accountable for the definition or asset.
+   - Add `evidence` for important descriptions, mappings, lineage, relationships, and constraints.
+   - Add `verified` to distinguish confirmed knowledge from useful but inferred knowledge.
+
+9. Ask the user to confirm uncertain semantics.
+   - Confirm entity boundaries, ambiguous terms, relationship meaning, property meanings, field mappings, and business rules.
+   - Keep unconfirmed descriptions useful but explicit about uncertainty.
+
+Example uncertainty marker:
 
 ```yaml
-description: Needs user confirmation: appears to store refund approval status based on column name and API usage.
+description: Needs user confirmation: appears to store booking eligibility based on column name and view SQL usage.
 verified:
   status: false
   reason: inferred_from_name_and_usage
 ```
 
-## Load References Progressively
+## Required References
 
-- Shared required fields and relationship conventions: `references/common-node-fields.md`
-- Scenario node YAML: `references/scenario-node.md`
-- Term node YAML: `references/term-node.md`
-- Object node YAML: `references/object-node.md`
-- Table node YAML: `references/table-node.md`
-- View node YAML: `references/view-node.md`
-- Feed file node YAML: `references/feedfile-node.md`
-- API node YAML: `references/api-node.md`
-- Dashboard node YAML: `references/dashboard-node.md`
-- Pipeline node YAML: `references/pipeline-node.md`
-- Quality check YAML: `references/quality-check-node.md`
-- Graph generation rules: `references/graph-json-build.md`
+Load these files progressively when creating or modifying YAML:
 
-## Non-Negotiables
+- Shared fields and conventions: `references/common-node-fields.md`
+- Business entity YAML: `references/business-entity-node.md`
+- Term YAML: `references/term-node.md`
+- Table YAML: `references/table-node.md`
+- View YAML: `references/view-node.md`
+- Controlled relation vocabulary: `references/relation-types.md`
+- Graph build rules: `references/graph-json-build.md`
 
-- Every node must include `id`, `type`, `name`, and `description`.
-- Use `related_nodes` for semantic or business relationships to any node type.
-- Use `lineage` only for direct data movement or direct runtime dependency. Do not write transitive shortcuts such as `feedfile -> table` when the real path is `feedfile -> pipeline -> table`.
-- Put simple executable checks inline on the asset/field with `quality_checks`. Use standalone `quality_check` nodes with `targets` for multi-field, cross-asset, policy-like, or reused rules. Use `validates` to link the protected `scenario`, `object`, or `term`.
-- Put `evidence` and `verified` on technical assets, lineage entries, quality checks, rules, or inferred relationships when trust matters.
-- Do not mechanically add `owner`, `domain`, `confidence`, `evidence`, or `verified` to lightweight semantic nodes such as simple terms.
-- For tables, use `table.<schema>.<table>` as the default ID. For columns, use `column.<schema>.<table>.<column>`.
-- Do not invent table fields, column names, or data types. Read them from the database/schema/code source.
-- Ask the user before verifying ambiguous terms, objects, scenario boundaries, business rules, or lineage.
+## Node Types
 
-## Node Types And Core Fields
-
-Load the matching reference file for exact YAML format and examples. These are the minimum fields the Agent should understand for each node type:
+Top-level YAML node types:
 
 ```text
-scenario       id, type, name, description, parent_scenario, child_scenarios, scenario_flow, business_logic, related_nodes
-term           id, type, name, description, definition, aliases, related_nodes
-object         id, type, name, description, properties, related_nodes
-table          id, type, name, description, schema, columns, primary_key, related_nodes, lineage, quality_checks
-view           id, type, name, description, schema, definition/sql, columns, related_nodes, lineage, quality_checks
-column         derived from table/view columns; use column.<schema>.<table>.<column> or column.<schema>.<view>.<column>
-feedfile       id, type, name, description, location, format, frequency, owner, fields, related_nodes, quality_checks
-api            id, type, name, description, parameters, returns, logic, related_nodes, lineage, quality_checks
-dashboard      id, type, name, description, platform, url, displays, related_nodes, lineage when directly querying data
-pipeline       id, type, name, description, platform, schedule, code_refs, related_nodes, lineage, quality_checks
-quality_check  id, type, name, description, check_type, severity, targets, rule, related_nodes, validates
+business_entity
+term
+table
+view
 ```
 
-`column` and dashboard displayed-field nodes are usually derived graph nodes created by the builder from inline `columns`, API `returns`, feedfile `fields`, and dashboard `displays`. Create standalone YAML for a field only when the field needs a large independent profile that would make the asset YAML hard to maintain.
-
-## Edge Types And Where They Come From
-
-Do not create edge YAML. Create edges only from node fields:
+Derived graph node types:
 
 ```text
-contains              table/view/api/feedfile/dashboard -> derived field node
-contains_scenario     parent scenario -> child scenario
-precedes/enables/...   scenario.scenario_flow source -> target
-related_to or custom   related_nodes[] source -> target
-consumes              feedfile/table/view -> pipeline
-reads                 table/view/feedfile -> pipeline/api/view/dashboard
-writes                pipeline/api/process -> table/view/feedfile
-produces              pipeline/process -> table/view/feedfile
-serves                api -> dashboard/frontend grid
-displays              source field -> dashboard displayed field
-lineage               source field -> derived field
-maps_to_property      object property -> column/API/feedfile/dashboard field
-checks                quality_check -> asset/field
-validates             quality_check -> scenario/object/term
-implemented_by        scenario/object -> asset, when explicitly described
-served_by             object/scenario -> api/dashboard, when explicitly described
-defines/explains      term -> object/scenario/term
-mapped_to             term -> concrete field/column, not whole asset
+business_entity_property
+column
 ```
 
-Every edge that affects reasoning should carry a `description`. The label answers "what kind of relationship is this"; the description answers "why does this relationship exist in this business/system".
-
-## Runtime Order: YAML To UI And Agent Query
-
-Use this execution order after YAML files exist:
+Minimum top-level fields:
 
 ```text
-source systems/docs/user input
-  -> knowledge/nodes/**/*.yaml
-  -> build_graph.py or equivalent compiler
-  -> knowledge/indexes/graph.json
-  -> knowledge/indexes/catalog.json
-  -> knowledge/indexes/search.json
-  -> knowledge/indexes/lineage.json
-  -> frontend/graph-data.js, catalog-data.js, views-data.js
-  -> static UI loads data JS files
-  -> Agent CLI/MCP queries JSON indexes or graph API
+business_entity  id, type, name, description, owner, properties, mapped_assets, related_nodes, constraints, evidence, verified
+term             id, type, name, description, definition, aliases, owner, related_nodes, evidence, verified
+table            id, type, name, description, owner, schema, columns, primary_key, related_nodes, lineage, evidence, verified
+view             id, type, name, description, owner, schema, definition/sql, columns, related_nodes, lineage, evidence, verified
 ```
 
-The source of truth is always `knowledge/nodes/**/*.yaml`. If the YAML changes, rerun the graph builder. The UI should not edit or own graph facts unless it writes changes back to YAML and rebuilds.
+## Semantic Roles
 
-Recommended local command flow:
+Use `semantic_role` on business entity properties:
+
+```text
+identifier       identifies an entity, such as order_id or refund_request_id
+dimension        categorical context, such as counterparty, region, product_type
+time_dimension   date/time context, such as order_created_at or decision_at
+fact             row-level quantitative fact, such as quantity or item_count
+measure          business numeric value used for analysis, such as refund_amount
+status           lifecycle/status value, such as request_status or approval_status
+```
+
+Do not put `semantic_role` on table/view columns. Columns are physical fields; their business role is expressed by mapping them to `business_entity.properties[]`.
+
+## Tags And Constraints
+
+These are properties by default, not graph nodes:
+
+```text
+tags
+constraints
+semantic_role
+```
+
+Use `tags` as lightweight taxonomy facets:
+
+```yaml
+tags:
+  - domain.commerce
+  - lifecycle.refund
+  - sensitivity.internal
+```
+
+Model hierarchy as relations between real nodes:
+
+```yaml
+related_nodes:
+  - id: business_entity.financial_obligation
+    relation: CHILD_OF
+    description: Margin Call is a specialized financial obligation.
+```
+
+Use `CHILD_OF` for subtype, specialization, roll-up, or parent/child hierarchy. Use `PART_OF` for composition. Do not create relation edges for tags, constraints, or semantic roles unless the project explicitly promotes them into first-class nodes.
+
+## Owner, Evidence, Verified
+
+Use these fields to make the graph trustworthy for Agent use:
+
+```yaml
+owner:
+
+evidence:
+  - kind:
+    ref:
+
+verified:
+  status: true | false
+  by:
+  at:
+  reason:
+```
+
+Guidance:
+
+- `owner` answers who is accountable for the definition, asset, or rule. Keep it as a simple string such as `Margin Operations` or `Risk Data Engineering`.
+- `evidence` answers where the claim came from: schema, SQL, code, document, test, or human confirmation.
+- `verified` answers whether the claim has been confirmed by an owner, user, source system, test, or trusted process.
+- Use these fields on important business entities, physical assets, lineage, constraints, and inferred semantic mappings.
+
+## Relation Rules
+
+Relations connect graph nodes. The relation value must come from `references/relation-types.md`.
+
+Common relations:
+
+```text
+business_entity -> business_entity
+  CREATES
+  REFERENCES
+  DEPENDS_ON
+  DERIVES_FROM
+  AGGREGATES
+  RECONCILES_WITH
+  SETTLES
+  VALUES
+  PART_OF
+  CHILD_OF
+  RELATED_TO
+
+business_entity/property/column -> term
+  HAS_TERM
+
+business_entity_property -> column
+  MAPS_TO
+
+business_entity -> table/view
+  IMPLEMENTED_BY
+  REPRESENTED_BY
+
+table/view -> column
+  CONTAINS
+
+view/table/column lineage
+  READS_FROM
+  DERIVES_FROM
+```
+
+Every reasoning-relevant edge needs a `description`. The relation label answers "what kind of connection is this"; the description answers "why does this connection exist in this business/system."
+
+## Direct Lineage
+
+Lineage must describe direct dependencies only.
+
+```text
+Good: view.analytics.v_order_summary READS_FROM view.analytics.v_orders
+Bad:  view.analytics.v_order_summary READS_FROM table.raw.orders
+      when the real path is table.raw.orders -> view.analytics.v_orders -> view.analytics.v_order_summary
+```
+
+For columns, use `DERIVES_FROM` from derived column to source column.
+
+## Build And Query Runtime
+
+Recommended local flow:
 
 ```powershell
-python -m pip install -r requirements.txt
 python scripts/build_graph.py
 python -m http.server 8765 -d frontend
 ```
@@ -193,33 +295,31 @@ Then open:
 http://127.0.0.1:8765/index.html
 ```
 
-The builder should write two kinds of outputs:
+Frontend build contract:
 
 ```text
-knowledge/indexes/*.json
-  Agent/CLI/MCP query artifacts. These are stable data products.
-
-frontend/*-data.js
-  Browser-friendly wrappers such as window.GRAPH_DATA = {...}.
-  These let a static HTML UI load graph data without a backend server.
+frontend/index.html is a committed static UI shell.
+scripts/build_graph.py does not generate or overwrite index.html.
+scripts/build_graph.py generates the data files consumed by index.html.
+If YAML changes, rerun scripts/build_graph.py and refresh the browser.
+If app.js/style.css/index.html changes, update those frontend files directly and bump their query-string version in index.html when browser cache may matter.
 ```
 
-If the UI is served by a real backend later, it can fetch `knowledge/indexes/*.json` directly instead of using `frontend/*-data.js`.
-
-Use this change loop:
+Generated outputs:
 
 ```text
-1. Edit or generate YAML.
-2. Run builder.
-3. Fix validation warnings: duplicate IDs, missing descriptions, dangling refs, suspicious transitive lineage.
-4. Refresh UI.
-5. Inspect Browse/Catalog/Semantics/Field Map/Asset Profile.
-6. Ask user to confirm uncertain descriptions, terms, objects, quality checks, and lineage.
-7. Write confirmed corrections back to YAML.
-8. Rebuild.
+knowledge/indexes/graph.json       graph nodes and edges
+knowledge/indexes/catalog.json     full node details
+knowledge/indexes/search.json      search index
+knowledge/indexes/lineage.json     upstream/downstream adjacency
+frontend/graph-data.js             browser wrapper
+frontend/catalog-data.js           browser wrapper
+frontend/views-data.js             browser wrapper
 ```
 
-For Agent usage, expose commands or MCP tools over the generated indexes:
+Agent query tools should read generated JSON indexes, not scrape the UI.
+
+Useful query operations:
 
 ```text
 search(query, type?)
@@ -227,111 +327,56 @@ get_node(id)
 neighbors(id, depth=1, edge_type?)
 upstream(id)
 downstream(id)
-field_lineage(field_id)
-quality_for(id)
-assets_for_scenario(scenario_id)
+field_lineage(column_id)
+constraints_for(id)
 fields_for_term(term_id)
-assets_for_object(object_id)
+assets_for_entity(entity_id)
+entity_relationships(entity_id)
 unverified()
 ```
 
-These query tools should read generated JSON indexes, never scrape the UI.
-
-If the project includes `scripts/kg_query.py`, use it as the default Agent query interface after running the builder:
+If `scripts/kg_query.py` exists, use it as the default CLI interface:
 
 ```powershell
-cd <project-root>
-python scripts/kg_query.py search margin_call_id
-python scripts/kg_query.py search margin --type term
-python scripts/kg_query.py get table.margin.margin_calculation
-python scripts/kg_query.py neighbors table.margin.margin_calculation
-python scripts/kg_query.py neighbors table.margin.margin_calculation --edge-type reads
-python scripts/kg_query.py upstream api.margin.get_margin_settlement_summary
-python scripts/kg_query.py downstream table.margin.margin_calculation --depth 2
-python scripts/kg_query.py quality table.booking.booking_order
-python scripts/kg_query.py fields-for-term term.margin
-python scripts/kg_query.py assets-for-scenario scenario.settlement
-python scripts/kg_query.py assets-for-object object.margin_call
+python scripts/kg_query.py search refund
+python scripts/kg_query.py get business_entity.refund_request
+python scripts/kg_query.py neighbors business_entity.refund_request --depth 2
+python scripts/kg_query.py upstream view.analytics.v_refund_lifecycle
+python scripts/kg_query.py fields-for-term term.refund_amount
+python scripts/kg_query.py assets-for-entity business_entity.refund_request
 ```
 
-The CLI returns JSON so the Agent can parse it directly. Treat CLI results as generated query output; if a result is wrong, fix YAML and rerun `python scripts/build_graph.py`.
+## UI Expectation
 
-## Direct Lineage Rule
-
-Lineage in YAML is source-of-truth, so it must describe only direct references:
+The UI should be a catalog explorer:
 
 ```text
-Good: feedfile -> pipeline -> table -> view -> api -> dashboard
-Bad:  feedfile -> table, pipeline -> dashboard, table -> dashboard
+search node by name/id/description/tag
+select one node as focus
+filter visible neighborhood by node type
+filter visible neighborhood by edge type
+filter by tag
+choose max depth
+show related nodes and edges
+show node profile
+show edge profile
 ```
 
-Prefer declaring direct lineage on the node that performs the action:
+`column` and `business_entity_property` nodes are collapsed inside their parent table/view/business entity by default. Show field/property-level connections only when both parent nodes are expanded.
+
+## Validation Checklist
+
+Before finishing a graph update, check:
 
 ```text
-pipeline upstream relation=consumes/reads
-pipeline downstream relation=writes/produces
-view upstream relation=reads
-api upstream relation=reads
-api downstream relation=serves
-```
-
-If a missing process explains the dependency, create that process/API/pipeline/frontend node or keep the dependency in a description. Do not create graph edges for reachable-but-not-direct relationships.
-
-## UI Projections
-
-Use three complementary views instead of one overloaded graph:
-
-```text
-Catalog / Implementation
-  shows scenario-contained assets and direct asset data-flow edges:
-  feedfile -> pipeline -> table/view -> api -> dashboard
-
-Business Context
-  shows scenario, term, object, asset, and quality_check semantic relationships.
-  Do not show asset-to-asset data-flow edges here.
-  Do not expand fields/columns here.
-
-Field Map
-  shows all assets as ER-style boxes that contain their fields.
-  Draw field-to-field lineage edges between fields across assets.
-  Clicking a field shows field meaning, parent asset, semantic mappings, field-level lineage, and quality.
-  Show asset-level quality checks as compact chips inside the asset box.
-  Show field-level quality checks as badges on the field row and details in the field profile.
-  For cross-asset quality checks, repeat the same quality chip in every involved asset box; clicking it highlights all target assets and fields.
-  This view is global by default; do not group it by scenario unless the user explicitly asks for a scenario filter.
-```
-
-Term-to-data mappings should point to real fields/columns, not to whole assets. When fields are collapsed in Business Context, those mappings are intentionally absent from that view and should appear in Field Map.
-
-## Supported Node Types
-
-```text
-scenario
-term
-object
-table
-view
-column
-feedfile
-api
-dashboard
-pipeline
-quality_check
-```
-
-## Supported Agent Queries
-
-The generated graph should support:
-
-```text
-search node by name/type/tag
-get node by id
-get upstream/downstream lineage
-impact analysis
-find fields mapped to a term
-find assets representing an object
-find assets supporting a scenario
-find unverified relationships
-find quality checks for an asset or field
-find missing owner/tag/description/evidence
+No duplicate node IDs.
+No dangling references.
+No missing top-level descriptions.
+No invented physical columns or data types.
+No transitive lineage shortcuts.
+No custom relation names outside the controlled vocabulary.
+No entity properties that merely mirror technical columns.
+No term-to-table shortcut when the meaning belongs to a field.
+Constraints have type, description, and governed target.
+Uncertain business facts are marked for user confirmation.
 ```

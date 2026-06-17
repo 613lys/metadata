@@ -1,0 +1,50 @@
+id: business_entity.payment_refund
+type: business_entity
+name: Payment Refund
+description: Payment processor refund transaction created after approval.
+term: term.payment_refund
+owner: Payments Operations
+tags:
+  - domain.payments
+  - lifecycle.payment
+properties:
+  - name: payment_refund_id
+    description: Stable identifier for the payment refund transaction.
+    semantic_role: identifier
+    maps_to:
+      - column.payments.payment_refund.payment_refund_id
+  - name: decision_id
+    description: Refund decision that authorized the payment refund.
+    semantic_role: identifier
+    maps_to:
+      - column.payments.payment_refund.decision_id
+  - name: refunded_amount
+    description: Amount sent to the payment provider for refund.
+    semantic_role: measure
+    term: term.refund_amount
+    maps_to:
+      - column.payments.payment_refund.refunded_amount
+  - name: payment_status
+    description: Processor status of the refund transaction.
+    semantic_role: status
+    maps_to:
+      - column.payments.payment_refund.payment_status
+mapped_assets:
+  - id: table.payments.payment_refund
+    relation: IMPLEMENTED_BY
+    description: Payment refund table stores processor refund transactions.
+related_nodes:
+  - id: business_entity.refund_decision
+    relation: DERIVES_FROM
+    description: Payment refund is created from an approved refund decision.
+constraints:
+  - type: reconciliation
+    severity: critical
+    description: Refunded amount should reconcile to the approved amount for the decision.
+    expression: payment_refund.refunded_amount = refund_decision.approved_amount
+evidence:
+  - kind: api_contract
+    ref: services/payments/openapi.yaml#/refunds
+verified:
+  status: false
+  reason: generated_from_skill_demo

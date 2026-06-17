@@ -1,1526 +1,977 @@
 window.CATALOG_DATA = {
-  "api.margin.get_margin_booking_candidates": {
-    "id": "api.margin.get_margin_booking_candidates",
-    "type": "api",
-    "name": "GET /margin/booking-candidates",
-    "description": "Returns eligible margin calls for booking users.",
-    "parameters": [
-      {
-        "name": "business_date",
-        "data_type": "date",
-        "required": true,
-        "description": "Business date for candidate selection."
-      },
-      {
-        "name": "min_margin_requirement",
-        "data_type": "decimal",
-        "required": false,
-        "description": "Optional minimum margin filter."
-      }
+  "business_entity.customer_order": {
+    "id": "business_entity.customer_order",
+    "type": "business_entity",
+    "name": "Customer Order",
+    "description": "Confirmed customer purchase that can later be refunded.",
+    "term": "term.order_identifier",
+    "owner": "Commerce Operations",
+    "tags": [
+      "domain.commerce",
+      "lifecycle.order"
     ],
-    "returns": [
+    "properties": [
       {
-        "name": "margin_call_id",
-        "data_type": "string",
-        "description": "Margin call identifier.",
-        "lineage": [
-          {
-            "source": "column.margin.margin_calculation.margin_call_id",
-            "description": "Directly selected from margin_calculation.margin_call_id."
-          }
+        "name": "order_id",
+        "description": "Stable identifier for the customer order.",
+        "semantic_role": "identifier",
+        "term": "term.order_identifier",
+        "maps_to": [
+          "column.sales.order_header.order_id"
         ]
       },
       {
-        "name": "margin_requirement",
-        "data_type": "decimal",
-        "description": "Required margin amount.",
-        "lineage": [
-          {
-            "source": "column.margin.margin_calculation.margin_requirement",
-            "description": "Directly selected from margin_calculation.margin_requirement."
-          }
+        "name": "customer_id",
+        "description": "Customer who placed the order.",
+        "semantic_role": "dimension",
+        "maps_to": [
+          "column.sales.order_header.customer_id"
+        ]
+      },
+      {
+        "name": "order_total_amount",
+        "description": "Gross order value before any later refund.",
+        "semantic_role": "measure",
+        "maps_to": [
+          "column.sales.order_header.order_total_amount"
+        ]
+      },
+      {
+        "name": "order_created_at",
+        "description": "Timestamp when the order was created.",
+        "semantic_role": "time_dimension",
+        "maps_to": [
+          "column.sales.order_header.order_created_at"
         ]
       }
     ],
-    "logic": {
-      "description": "Reads booking-eligible margin calls and returns candidates for booking.",
-      "sql": "select\n  margin_call_id,\n  margin_requirement\nfrom margin.margin_calculation\nwhere booking_eligible = true\n  and margin_requirement >= coalesce(:min_margin_requirement, 0)\n"
+    "mapped_assets": [
+      {
+        "id": "table.sales.order_header",
+        "relation": "IMPLEMENTED_BY",
+        "description": "Order header table is the primary physical representation of customer orders."
+      }
+    ],
+    "constraints": [
+      {
+        "type": "identity",
+        "severity": "critical",
+        "description": "Each customer order must have a stable order identifier.",
+        "expression": "customer_order.order_id is not null"
+      }
+    ],
+    "evidence": [
+      {
+        "kind": "schema",
+        "ref": "evidence/schema_snapshots/sales_order_header.json"
+      }
+    ],
+    "verified": {
+      "status": false,
+      "reason": "generated_from_skill_demo"
     },
-    "related_nodes": [
-      {
-        "id": "scenario.booking",
-        "description": "API serves candidates for the booking scenario."
-      },
-      {
-        "id": "object.margin_call",
-        "description": "API returns eligible margin calls."
-      }
-    ],
-    "lineage": {
-      "upstream": [
-        {
-          "id": "table.margin.margin_calculation",
-          "relation": "reads",
-          "description": "API reads margin calculation records."
-        }
-      ]
-    },
-    "quality_checks": [
-      {
-        "name": "Candidate API Requires Business Date",
-        "check_type": "required_parameters",
-        "fields": [
-          "business_date"
-        ],
-        "validates": [
-          {
-            "id": "scenario.booking",
-            "description": "Booking candidate selection must be scoped to a business date."
-          },
-          {
-            "id": "object.margin_call",
-            "description": "The API returns eligible margin calls for booking."
-          }
-        ]
-      }
-    ],
-    "_source_file": "knowledge/nodes/apis/api.margin.get_margin_booking_candidates.yaml"
+    "_source_file": "knowledge/nodes/business_entities/business_entity.customer_order.yaml"
   },
-  "api.margin.get_margin_settlement_summary": {
-    "id": "api.margin.get_margin_settlement_summary",
-    "type": "api",
-    "name": "GET /margin/settlement-summary",
-    "description": "Returns margin, booking, and settlement status for operational dashboards.",
-    "parameters": [
-      {
-        "name": "business_date",
-        "data_type": "date",
-        "required": true,
-        "description": "Business date for summary data."
-      }
+  "business_entity.payment_refund": {
+    "id": "business_entity.payment_refund",
+    "type": "business_entity",
+    "name": "Payment Refund",
+    "description": "Payment processor refund transaction created after approval.",
+    "term": "term.payment_refund",
+    "owner": "Payments Operations",
+    "tags": [
+      "domain.payments",
+      "lifecycle.payment"
     ],
-    "returns": [
+    "properties": [
       {
-        "name": "margin_call_id",
-        "data_type": "string",
-        "description": "Margin call identifier.",
-        "lineage": [
-          {
-            "source": "column.settlement.v_margin_settlement_summary.margin_call_id",
-            "description": "Returned from summary view."
-          }
+        "name": "payment_refund_id",
+        "description": "Stable identifier for the payment refund transaction.",
+        "semantic_role": "identifier",
+        "maps_to": [
+          "column.payments.payment_refund.payment_refund_id"
         ]
       },
       {
-        "name": "dispute_status",
-        "data_type": "string",
-        "description": "Booking dispute status.",
-        "lineage": [
-          {
-            "source": "column.settlement.v_margin_settlement_summary.dispute_status",
-            "description": "Returned from summary view."
-          }
+        "name": "decision_id",
+        "description": "Refund decision that authorized the payment refund.",
+        "semantic_role": "identifier",
+        "maps_to": [
+          "column.payments.payment_refund.decision_id"
         ]
       },
       {
-        "name": "settlement_status",
-        "data_type": "string",
-        "description": "Settlement instruction status.",
-        "lineage": [
-          {
-            "source": "column.settlement.v_margin_settlement_summary.settlement_status",
-            "description": "Returned from summary view."
-          }
+        "name": "refunded_amount",
+        "description": "Amount sent to the payment provider for refund.",
+        "semantic_role": "measure",
+        "term": "term.refund_amount",
+        "maps_to": [
+          "column.payments.payment_refund.refunded_amount"
+        ]
+      },
+      {
+        "name": "payment_status",
+        "description": "Processor status of the refund transaction.",
+        "semantic_role": "status",
+        "maps_to": [
+          "column.payments.payment_refund.payment_status"
         ]
       }
     ],
-    "logic": {
-      "description": "Reads the settlement summary view and filters by business date in service code."
-    },
+    "mapped_assets": [
+      {
+        "id": "table.payments.payment_refund",
+        "relation": "IMPLEMENTED_BY",
+        "description": "Payment refund table stores processor refund transactions."
+      }
+    ],
     "related_nodes": [
       {
-        "id": "scenario.margin_booking_settlement",
-        "description": "API serves dashboard data for the parent scenario."
+        "id": "business_entity.refund_decision",
+        "relation": "DERIVES_FROM",
+        "description": "Payment refund is created from an approved refund decision."
       }
+    ],
+    "constraints": [
+      {
+        "type": "reconciliation",
+        "severity": "critical",
+        "description": "Refunded amount should reconcile to the approved amount for the decision.",
+        "expression": "payment_refund.refunded_amount = refund_decision.approved_amount"
+      }
+    ],
+    "evidence": [
+      {
+        "kind": "api_contract",
+        "ref": "services/payments/openapi.yaml#/refunds"
+      }
+    ],
+    "verified": {
+      "status": false,
+      "reason": "generated_from_skill_demo"
+    },
+    "_source_file": "knowledge/nodes/business_entities/business_entity.payment_refund.yaml"
+  },
+  "business_entity.refund_decision": {
+    "id": "business_entity.refund_decision",
+    "type": "business_entity",
+    "name": "Refund Decision",
+    "description": "Business decision that approves or rejects a refund request.",
+    "term": "term.approval_status",
+    "owner": "Refund Review Team",
+    "tags": [
+      "domain.commerce",
+      "lifecycle.review"
+    ],
+    "properties": [
+      {
+        "name": "decision_id",
+        "description": "Stable identifier for the refund decision.",
+        "semantic_role": "identifier",
+        "maps_to": [
+          "column.support.refund_decision.decision_id"
+        ]
+      },
+      {
+        "name": "refund_request_id",
+        "description": "Refund request being reviewed.",
+        "semantic_role": "identifier",
+        "maps_to": [
+          "column.support.refund_decision.refund_request_id"
+        ]
+      },
+      {
+        "name": "approved_amount",
+        "description": "Amount approved for payment refund.",
+        "semantic_role": "measure",
+        "term": "term.refund_amount",
+        "maps_to": [
+          "column.support.refund_decision.approved_amount"
+        ],
+        "constraints": [
+          {
+            "type": "comparison",
+            "severity": "high",
+            "description": "Approved amount cannot exceed the originally requested amount.",
+            "expression": "approved_amount <= refund_request.requested_amount"
+          }
+        ]
+      },
+      {
+        "name": "decision_status",
+        "description": "Approved or rejected decision state.",
+        "semantic_role": "status",
+        "term": "term.approval_status",
+        "maps_to": [
+          "column.support.refund_decision.decision_status"
+        ]
+      }
+    ],
+    "mapped_assets": [
+      {
+        "id": "table.support.refund_decision",
+        "relation": "IMPLEMENTED_BY",
+        "description": "Refund decision table stores manual and automated review outcomes."
+      }
+    ],
+    "related_nodes": [
+      {
+        "id": "business_entity.refund_request",
+        "relation": "DERIVES_FROM",
+        "description": "Refund decision is derived from review of the refund request and policy checks."
+      }
+    ],
+    "constraints": [
+      {
+        "type": "state_transition",
+        "severity": "critical",
+        "description": "Payment refund can be created only for approved decisions.",
+        "expression": "refund_decision.decision_status = 'approved'"
+      }
+    ],
+    "evidence": [
+      {
+        "kind": "source_code",
+        "ref": "services/refunds/review_workflow.py"
+      }
+    ],
+    "verified": {
+      "status": false,
+      "reason": "generated_from_skill_demo"
+    },
+    "_source_file": "knowledge/nodes/business_entities/business_entity.refund_decision.yaml"
+  },
+  "business_entity.refund_request": {
+    "id": "business_entity.refund_request",
+    "type": "business_entity",
+    "name": "Refund Request",
+    "description": "Customer request for a refund against an existing order.",
+    "term": "term.refund_request",
+    "owner": "Commerce Operations",
+    "tags": [
+      "domain.commerce",
+      "lifecycle.refund"
+    ],
+    "properties": [
+      {
+        "name": "refund_request_id",
+        "description": "Stable identifier for the refund request.",
+        "semantic_role": "identifier",
+        "maps_to": [
+          "column.support.refund_request.refund_request_id"
+        ]
+      },
+      {
+        "name": "order_id",
+        "description": "Customer order that the refund request belongs to.",
+        "semantic_role": "identifier",
+        "term": "term.order_identifier",
+        "maps_to": [
+          "column.support.refund_request.order_id"
+        ]
+      },
+      {
+        "name": "requested_amount",
+        "description": "Amount requested by the customer.",
+        "semantic_role": "measure",
+        "term": "term.refund_amount",
+        "maps_to": [
+          "column.support.refund_request.requested_amount"
+        ],
+        "constraints": [
+          {
+            "type": "range",
+            "severity": "high",
+            "description": "Requested amount should be greater than zero.",
+            "expression": "requested_amount > 0"
+          }
+        ]
+      },
+      {
+        "name": "request_status",
+        "description": "Current lifecycle status of the request.",
+        "semantic_role": "status",
+        "term": "term.approval_status",
+        "maps_to": [
+          "column.support.refund_request.request_status"
+        ],
+        "constraints": [
+          {
+            "type": "accepted_values",
+            "severity": "high",
+            "description": "Refund request status must use the controlled status set.",
+            "expression": "request_status in ('submitted', 'approved', 'rejected', 'cancelled')"
+          }
+        ]
+      }
+    ],
+    "mapped_assets": [
+      {
+        "id": "table.support.refund_request",
+        "relation": "IMPLEMENTED_BY",
+        "description": "Refund request table stores customer-submitted refund cases."
+      }
+    ],
+    "related_nodes": [
+      {
+        "id": "business_entity.customer_order",
+        "relation": "REFERENCES",
+        "description": "A refund request references exactly one customer order.",
+        "constraints": [
+          {
+            "type": "relationship_required",
+            "severity": "critical",
+            "description": "A refund request must reference an existing customer order.",
+            "expression": "refund_request.order_id exists in customer_order.order_id"
+          }
+        ]
+      }
+    ],
+    "constraints": [
+      {
+        "type": "relationship_required",
+        "severity": "critical",
+        "description": "A refund request must reference an existing customer order.",
+        "expression": "refund_request.order_id exists in customer_order.order_id"
+      }
+    ],
+    "evidence": [
+      {
+        "kind": "policy",
+        "ref": "evidence/refund_policy.md"
+      }
+    ],
+    "verified": {
+      "status": false,
+      "reason": "generated_from_skill_demo"
+    },
+    "_source_file": "knowledge/nodes/business_entities/business_entity.refund_request.yaml"
+  },
+  "table.payments.payment_refund": {
+    "id": "table.payments.payment_refund",
+    "type": "table",
+    "name": "payment_refund",
+    "description": "Stores refund transactions submitted to the payment processor.",
+    "owner": "Payments Data Engineering",
+    "schema": "payments",
+    "columns": [
+      {
+        "name": "payment_refund_id",
+        "data_type": "varchar",
+        "nullable": false,
+        "description": "Primary key for the payment refund transaction."
+      },
+      {
+        "name": "decision_id",
+        "data_type": "varchar",
+        "nullable": false,
+        "description": "Refund decision that authorized the transaction.",
+        "lineage": {
+          "upstream": [
+            {
+              "id": "column.support.refund_decision.decision_id",
+              "description": "Payment refund references the approved decision."
+            }
+          ]
+        }
+      },
+      {
+        "name": "refunded_amount",
+        "data_type": "decimal",
+        "nullable": false,
+        "term": "term.refund_amount",
+        "description": "Amount sent to the payment processor.",
+        "lineage": {
+          "upstream": [
+            {
+              "id": "column.support.refund_decision.approved_amount",
+              "description": "Refunded amount is based on approved amount."
+            }
+          ],
+          "downstream": [
+            {
+              "id": "column.analytics.v_refund_lifecycle.refunded_amount",
+              "description": "Refund lifecycle view exposes refunded amount."
+            }
+          ]
+        }
+      },
+      {
+        "name": "payment_status",
+        "data_type": "varchar",
+        "nullable": false,
+        "description": "Processor status for the refund transaction.",
+        "lineage": {
+          "downstream": [
+            {
+              "id": "column.analytics.v_refund_lifecycle.payment_status",
+              "description": "Refund lifecycle view exposes payment status."
+            }
+          ]
+        }
+      }
+    ],
+    "primary_key": [
+      "payment_refund_id"
     ],
     "lineage": {
       "upstream": [
         {
-          "id": "view.settlement.v_margin_settlement_summary",
-          "relation": "reads",
-          "description": "API reads the margin settlement summary view."
+          "id": "table.support.refund_decision",
+          "relation": "READS_FROM",
+          "description": "Payment refund records are created from approved decisions."
         }
       ],
       "downstream": [
         {
-          "id": "dashboard.powerbi.margin_operations",
-          "relation": "serves",
-          "description": "Dashboard calls this API for operational monitoring."
+          "id": "view.analytics.v_refund_lifecycle",
+          "relation": "READS_FROM",
+          "description": "Refund lifecycle view reads payment refund status."
         }
       ]
     },
-    "_source_file": "knowledge/nodes/apis/api.margin.get_margin_settlement_summary.yaml"
-  },
-  "column.risk.mtm_valuation.mtm_value": {
-    "id": "column.risk.mtm_valuation.mtm_value",
-    "type": "column",
-    "name": "mtm_value",
-    "description": "MTM value used as an input to margin calculation.",
-    "parent": "table.risk.mtm_valuation",
-    "data_type": "decimal",
-    "nullable": false,
-    "related_nodes": [
+    "evidence": [
       {
-        "id": "term.mtm",
-        "description": "This column stores the MTM amount."
-      },
-      {
-        "id": "object.mtm_valuation.mtm_value",
-        "description": "This column maps to the MTM valuation value property."
-      },
-      {
-        "id": "scenario.margin_calculation",
-        "description": "Margin calculation uses this column as an input."
+        "kind": "db_schema",
+        "ref": "evidence/schema_snapshots/payments_payment_refund.json"
       }
     ],
-    "lineage": {
-      "downstream": [
-        {
-          "id": "column.margin.margin_calculation.margin_requirement",
-          "description": "Margin requirement is calculated using MTM value."
-        }
-      ]
+    "verified": {
+      "status": false,
+      "reason": "generated_from_skill_demo"
     },
-    "quality_checks": [
-      {
-        "name": "MTM Value Not Null",
-        "check_type": "not_null",
-        "fields": [
-          "mtm_value"
-        ],
-        "validates": [
-          {
-            "id": "term.mtm",
-            "description": "MTM value must exist for the MTM concept to be usable."
-          },
-          {
-            "id": "object.mtm_valuation",
-            "description": "MTM valuation records require a valuation amount."
-          },
-          {
-            "id": "scenario.margin_calculation",
-            "description": "Margin calculation depends on this MTM value input."
-          }
-        ]
-      }
-    ],
-    "_source_file": "knowledge/nodes/columns/column.risk.mtm_valuation.mtm_value.yaml"
+    "_source_file": "knowledge/nodes/tables/table.payments.payment_refund.yaml"
   },
-  "dashboard.powerbi.margin_operations": {
-    "id": "dashboard.powerbi.margin_operations",
-    "type": "dashboard",
-    "name": "Margin Operations",
-    "description": "Dashboard for monitoring margin calls, booking dispute status, and settlement status.",
-    "platform": "powerbi",
-    "url": null,
-    "displays": [
-      "column.settlement.v_margin_settlement_summary.margin_call_id",
-      "column.settlement.v_margin_settlement_summary.dispute_status",
-      "column.settlement.v_margin_settlement_summary.settlement_status"
-    ],
-    "related_nodes": [
+  "table.sales.order_header": {
+    "id": "table.sales.order_header",
+    "type": "table",
+    "name": "order_header",
+    "description": "Stores one row per confirmed customer order.",
+    "owner": "Sales Data Engineering",
+    "schema": "sales",
+    "columns": [
       {
-        "id": "scenario.margin_booking_settlement",
-        "description": "Dashboard monitors the parent margin booking settlement scenario."
+        "name": "order_id",
+        "data_type": "varchar",
+        "nullable": false,
+        "term": "term.order_identifier",
+        "description": "Primary key for the customer order.",
+        "lineage": {
+          "downstream": [
+            {
+              "id": "column.support.refund_request.order_id",
+              "description": "Refund requests carry the source order identifier."
+            }
+          ]
+        }
       },
       {
-        "id": "scenario.settlement",
-        "description": "Dashboard shows settlement status."
-      }
-    ],
-    "_source_file": "knowledge/nodes/dashboards/dashboard.powerbi.margin_operations.yaml"
-  },
-  "feedfile.s3.counterparty_mtm_feed": {
-    "id": "feedfile.s3.counterparty_mtm_feed",
-    "type": "feedfile",
-    "name": "counterparty_mtm_feed.csv",
-    "description": "Daily counterparty-provided MTM feed.",
-    "location": "s3://risk-data/inbound/mtm/counterparty_mtm_feed.csv",
-    "format": "csv",
-    "frequency": "daily",
-    "owner": "team.risk-operations",
-    "fields": [
-      {
-        "name": "position_id",
-        "data_type": "string"
+        "name": "customer_id",
+        "data_type": "varchar",
+        "nullable": false,
+        "description": "Customer identifier on the order."
       },
       {
-        "name": "mtm_value",
+        "name": "order_total_amount",
         "data_type": "decimal",
-        "description": "Counterparty-provided MTM value.",
-        "related_nodes": [
-          {
-            "id": "term.mtm",
-            "description": "Field stores MTM value."
-          }
-        ]
+        "nullable": false,
+        "description": "Gross order amount at checkout."
       },
       {
-        "name": "valuation_date",
-        "data_type": "date"
+        "name": "order_created_at",
+        "data_type": "timestamp",
+        "nullable": false,
+        "description": "Timestamp when the order was confirmed."
       }
     ],
-    "related_nodes": [
+    "primary_key": [
+      "order_id"
+    ],
+    "evidence": [
       {
-        "id": "scenario.mtm_valuation",
-        "description": "Feed provides input data for MTM valuation."
+        "kind": "db_schema",
+        "ref": "evidence/schema_snapshots/sales_order_header.json"
       }
     ],
-    "quality_checks": [
-      {
-        "name": "Counterparty MTM Feed Freshness",
-        "check_type": "freshness",
-        "expectation": "received within 24 hours",
-        "validates": [
-          {
-            "id": "scenario.mtm_valuation",
-            "description": "Fresh MTM feed data is required for daily MTM valuation."
-          },
-          {
-            "id": "term.mtm",
-            "description": "The check protects the timeliness of MTM values."
-          }
-        ]
-      }
-    ],
-    "_source_file": "knowledge/nodes/feedfiles/feedfile.s3.counterparty_mtm_feed.yaml"
+    "verified": {
+      "status": false,
+      "reason": "generated_from_skill_demo"
+    },
+    "_source_file": "knowledge/nodes/tables/table.sales.order_header.yaml"
   },
-  "object.booking_order": {
-    "id": "object.booking_order",
-    "type": "object",
-    "name": "Booking Order",
-    "description": "Business object representing a booking created from an eligible margin call.",
-    "properties": [
+  "table.support.refund_decision": {
+    "id": "table.support.refund_decision",
+    "type": "table",
+    "name": "refund_decision",
+    "description": "Stores review outcomes for refund requests.",
+    "owner": "Support Data Engineering",
+    "schema": "support",
+    "columns": [
       {
-        "name": "booking_id",
-        "description": "Unique booking identifier.",
-        "maps_to": [
-          "column.booking.booking_order.booking_id"
-        ]
+        "name": "decision_id",
+        "data_type": "varchar",
+        "nullable": false,
+        "description": "Primary key for the refund decision."
       },
       {
-        "name": "dispute_status",
-        "description": "Whether the booking is disputed or undisputed.",
-        "allowed_values": [
-          "disputed",
-          "undisputed"
-        ],
-        "maps_to": [
-          "column.booking.booking_order.dispute_status"
-        ]
+        "name": "refund_request_id",
+        "data_type": "varchar",
+        "nullable": false,
+        "description": "Refund request reviewed by this decision.",
+        "lineage": {
+          "upstream": [
+            {
+              "id": "column.support.refund_request.refund_request_id",
+              "description": "Decision references the reviewed refund request."
+            }
+          ]
+        }
+      },
+      {
+        "name": "approved_amount",
+        "data_type": "decimal",
+        "nullable": true,
+        "term": "term.refund_amount",
+        "description": "Approved refund amount when the decision is approved.",
+        "lineage": {
+          "upstream": [
+            {
+              "id": "column.support.refund_request.requested_amount",
+              "description": "Approved amount is determined from the requested amount and policy checks."
+            }
+          ],
+          "downstream": [
+            {
+              "id": "column.payments.payment_refund.refunded_amount",
+              "description": "Payment refund amount is based on approved amount."
+            },
+            {
+              "id": "column.analytics.v_refund_lifecycle.approved_amount",
+              "description": "Refund lifecycle view exposes approved amount."
+            }
+          ]
+        }
+      },
+      {
+        "name": "decision_status",
+        "data_type": "varchar",
+        "nullable": false,
+        "term": "term.approval_status",
+        "description": "Review outcome status.",
+        "lineage": {
+          "downstream": [
+            {
+              "id": "column.analytics.v_refund_lifecycle.decision_status",
+              "description": "Refund lifecycle view exposes decision status."
+            }
+          ]
+        }
       }
     ],
-    "related_nodes": [
-      {
-        "id": "object.margin_call",
-        "relation": "created_from",
-        "description": "A booking order is created from a margin call."
-      },
-      {
-        "id": "object.settlement_instruction",
-        "relation": "creates_when_undisputed",
-        "description": "An undisputed booking order can lead to a settlement instruction."
-      },
-      {
-        "id": "table.booking.booking_order",
-        "relation": "implemented_by",
-        "description": "This table stores booking orders."
-      },
-      {
-        "id": "api.margin.get_margin_booking_candidates",
-        "relation": "served_by",
-        "description": "This API exposes candidates for booking."
-      }
-    ],
-    "_source_file": "knowledge/nodes/objects/object.booking_order.yaml"
-  },
-  "object.margin_call": {
-    "id": "object.margin_call",
-    "type": "object",
-    "name": "Margin Call",
-    "description": "Business object representing required margin generated from valuation and collateral data.",
-    "properties": [
-      {
-        "name": "margin_call_id",
-        "description": "Unique margin call identifier.",
-        "maps_to": [
-          "column.margin.margin_calculation.margin_call_id"
-        ]
-      },
-      {
-        "name": "margin_requirement",
-        "description": "Required margin amount.",
-        "maps_to": [
-          "column.margin.margin_calculation.margin_requirement"
-        ]
-      }
-    ],
-    "related_nodes": [
-      {
-        "id": "object.mtm_valuation",
-        "relation": "derived_from",
-        "description": "Margin calls are derived from MTM valuations."
-      },
-      {
-        "id": "object.booking_order",
-        "relation": "creates",
-        "description": "Eligible margin calls can create booking orders."
-      },
-      {
-        "id": "table.margin.margin_calculation",
-        "relation": "implemented_by",
-        "description": "This table stores margin call calculation results."
-      }
-    ],
-    "_source_file": "knowledge/nodes/objects/object.margin_call.yaml"
-  },
-  "object.mtm_valuation": {
-    "id": "object.mtm_valuation",
-    "type": "object",
-    "name": "MTM Valuation",
-    "description": "Business object representing a mark-to-market valuation record for a position.",
-    "properties": [
-      {
-        "name": "valuation_id",
-        "description": "Unique valuation identifier.",
-        "maps_to": [
-          "column.risk.mtm_valuation.valuation_id"
-        ]
-      },
-      {
-        "name": "mtm_value",
-        "description": "Current market value of the position.",
-        "maps_to": [
-          "column.risk.mtm_valuation.mtm_value"
-        ]
-      },
-      {
-        "name": "valuation_date",
-        "description": "Date the valuation is effective.",
-        "maps_to": [
-          "column.risk.mtm_valuation.valuation_date"
-        ]
-      }
-    ],
-    "related_nodes": [
-      {
-        "id": "object.position",
-        "relation": "values",
-        "description": "MTM valuation values a position."
-      },
-      {
-        "id": "term.mtm",
-        "relation": "defined_by",
-        "description": "MTM defines the valuation meaning."
-      },
-      {
-        "id": "table.risk.mtm_valuation",
-        "relation": "implemented_by",
-        "description": "This table stores MTM valuation records."
-      }
-    ],
-    "_source_file": "knowledge/nodes/objects/object.mtm_valuation.yaml"
-  },
-  "object.position": {
-    "id": "object.position",
-    "type": "object",
-    "name": "Position",
-    "description": "Business object representing a trading or collateral position that can be valued.",
-    "properties": [
-      {
-        "name": "position_id",
-        "description": "Unique position identifier.",
-        "maps_to": [
-          "column.risk.mtm_valuation.position_id"
-        ]
-      }
-    ],
-    "related_nodes": [
-      {
-        "id": "object.mtm_valuation",
-        "relation": "valued_by",
-        "description": "Positions are valued by MTM valuation records."
-      },
-      {
-        "id": "scenario.mtm_valuation",
-        "relation": "involved_in",
-        "description": "Positions are the primary subject of MTM valuation."
-      }
-    ],
-    "_source_file": "knowledge/nodes/objects/object.position.yaml"
-  },
-  "object.settlement_instruction": {
-    "id": "object.settlement_instruction",
-    "type": "object",
-    "name": "Settlement Instruction",
-    "description": "Business object representing a settlement instruction created for an undisputed booking.",
-    "properties": [
-      {
-        "name": "settlement_id",
-        "description": "Unique settlement instruction identifier.",
-        "maps_to": [
-          "column.settlement.settlement_instruction.settlement_id"
-        ]
-      },
-      {
-        "name": "settlement_amount",
-        "description": "Amount to settle.",
-        "maps_to": [
-          "column.settlement.settlement_instruction.settlement_amount"
-        ]
-      }
-    ],
-    "related_nodes": [
-      {
-        "id": "object.booking_order",
-        "relation": "created_from",
-        "description": "Settlement instruction is created from an undisputed booking order."
-      },
-      {
-        "id": "table.settlement.settlement_instruction",
-        "relation": "implemented_by",
-        "description": "This table stores settlement instructions."
-      },
-      {
-        "id": "scenario.settlement",
-        "relation": "produced_by",
-        "description": "This object is produced in the settlement scenario."
-      }
-    ],
-    "_source_file": "knowledge/nodes/objects/object.settlement_instruction.yaml"
-  },
-  "pipeline.airflow.daily_mtm_valuation": {
-    "id": "pipeline.airflow.daily_mtm_valuation",
-    "type": "pipeline",
-    "name": "daily_mtm_valuation",
-    "description": "Loads counterparty MTM feed and produces normalized MTM valuation records.",
-    "platform": "airflow",
-    "schedule": "0 1 * * *",
-    "code_refs": [
-      "dags/daily_mtm_valuation.py",
-      "jobs/load_mtm_valuation.sql"
-    ],
-    "related_nodes": [
-      {
-        "id": "scenario.mtm_valuation",
-        "description": "Pipeline implements the MTM valuation scenario."
-      }
+    "primary_key": [
+      "decision_id"
     ],
     "lineage": {
       "upstream": [
         {
-          "id": "feedfile.s3.counterparty_mtm_feed",
-          "relation": "consumes",
-          "description": "Pipeline consumes counterparty MTM feed."
+          "id": "table.support.refund_request",
+          "relation": "READS_FROM",
+          "description": "Refund decision reads the refund request being reviewed."
         }
       ],
       "downstream": [
         {
-          "id": "table.risk.mtm_valuation",
-          "relation": "writes",
-          "description": "Pipeline produces normalized MTM valuation table."
-        }
-      ]
-    },
-    "quality_checks": [
-      {
-        "name": "Daily MTM Valuation Pipeline Success",
-        "check_type": "pipeline_success",
-        "expectation": "last run succeeded",
-        "validates": [
-          {
-            "id": "scenario.mtm_valuation",
-            "description": "The valuation scenario depends on this pipeline completing successfully."
-          },
-          {
-            "id": "object.mtm_valuation",
-            "description": "The pipeline produces MTM valuation records."
-          }
-        ]
-      }
-    ],
-    "_source_file": "knowledge/nodes/pipelines/pipeline.airflow.daily_mtm_valuation.yaml"
-  },
-  "pipeline.airflow.margin_calculation_job": {
-    "id": "pipeline.airflow.margin_calculation_job",
-    "type": "pipeline",
-    "name": "margin_calculation_job",
-    "description": "Calculates margin requirement from MTM valuation and collateral balance.",
-    "platform": "airflow",
-    "schedule": "0 3 * * *",
-    "code_refs": [
-      "dags/margin_calculation.py",
-      "jobs/margin_calculation.sql"
-    ],
-    "related_nodes": [
-      {
-        "id": "scenario.margin_calculation",
-        "description": "Pipeline implements the margin calculation scenario."
-      }
-    ],
-    "lineage": {
-      "upstream": [
-        {
-          "id": "table.risk.mtm_valuation",
-          "relation": "reads",
-          "description": "Pipeline consumes MTM valuation records."
+          "id": "table.payments.payment_refund",
+          "relation": "READS_FROM",
+          "description": "Payment refunds read approved refund decisions."
         },
         {
-          "id": "table.collateral.collateral_balance",
-          "relation": "reads",
-          "description": "Pipeline consumes collateral balance."
-        }
-      ],
-      "downstream": [
-        {
-          "id": "table.margin.margin_calculation",
-          "relation": "writes",
-          "description": "Pipeline produces margin calculation records."
+          "id": "view.analytics.v_refund_lifecycle",
+          "relation": "READS_FROM",
+          "description": "Refund lifecycle view reads decision outcomes."
         }
       ]
     },
-    "quality_checks": [
+    "evidence": [
       {
-        "name": "Margin Calculation Pipeline Success",
-        "check_type": "pipeline_success",
-        "expectation": "last run succeeded",
-        "validates": [
-          {
-            "id": "scenario.margin_calculation",
-            "description": "Margin calculation depends on this pipeline completing successfully."
-          },
-          {
-            "id": "object.margin_call",
-            "description": "The pipeline produces margin call calculation results."
-          }
-        ]
+        "kind": "db_schema",
+        "ref": "evidence/schema_snapshots/support_refund_decision.json"
       }
     ],
-    "_source_file": "knowledge/nodes/pipelines/pipeline.airflow.margin_calculation_job.yaml"
+    "verified": {
+      "status": false,
+      "reason": "generated_from_skill_demo"
+    },
+    "_source_file": "knowledge/nodes/tables/table.support.refund_decision.yaml"
   },
-  "quality.margin.booking_order_has_valid_margin_call": {
-    "id": "quality.margin.booking_order_has_valid_margin_call",
-    "type": "quality_check",
-    "name": "Booking Order Has Valid Margin Call",
-    "description": "Every booking order must reference an existing margin call produced by margin calculation.",
-    "check_type": "cross_table_referential_integrity",
-    "expectation": "booking_order.margin_call_id must exist in margin_calculation.margin_call_id.",
-    "targets": [
-      {
-        "id": "table.booking.booking_order",
-        "fields": [
-          "margin_call_id"
-        ],
-        "description": "Booking orders carry the margin_call_id that must be valid."
-      },
-      {
-        "id": "table.margin.margin_calculation",
-        "fields": [
-          "margin_call_id"
-        ],
-        "description": "Margin calculation is the authoritative source of margin calls."
-      }
-    ],
-    "validates": [
-      {
-        "id": "object.booking_order",
-        "description": "Booking orders must be traceable to a calculated margin call."
-      },
-      {
-        "id": "object.margin_call",
-        "description": "Margin calls must be the source for booking orders."
-      },
-      {
-        "id": "scenario.booking",
-        "description": "Booking depends on valid margin call references."
-      }
-    ],
-    "_source_file": "knowledge/nodes/quality_checks/quality.margin.booking_order_has_valid_margin_call.yaml"
-  },
-  "scenario.booking": {
-    "id": "scenario.booking",
-    "type": "scenario",
-    "name": "Booking",
-    "description": "Creates booking orders from margin calls after calculation.",
-    "parent_scenario": "scenario.margin_booking_settlement",
-    "business_logic": [
-      {
-        "name": "Select eligible margin calls",
-        "description": "Identify calculated margin calls that are eligible for booking."
-      },
-      {
-        "name": "Create booking order",
-        "description": "Convert an eligible margin call into a booking order."
-      }
-    ],
-    "related_nodes": [
-      {
-        "id": "term.booking",
-        "relation": "uses_term",
-        "description": "Booking is the business action of creating a booking order."
-      },
-      {
-        "id": "object.margin_call",
-        "relation": "consumes",
-        "description": "Booking starts from an eligible margin call."
-      },
-      {
-        "id": "object.booking_order",
-        "relation": "produces",
-        "description": "Booking produces booking orders."
-      },
-      {
-        "id": "table.margin.margin_calculation",
-        "description": "Source table for eligible booking candidates."
-      },
-      {
-        "id": "api.margin.get_margin_booking_candidates",
-        "description": "API serves booking candidates from margin calculation."
-      },
-      {
-        "id": "table.booking.booking_order",
-        "description": "Table stores booking orders."
-      }
-    ],
-    "_source_file": "knowledge/nodes/scenarios/scenario.booking.yaml"
-  },
-  "scenario.margin_booking_settlement": {
-    "id": "scenario.margin_booking_settlement",
-    "type": "scenario",
-    "name": "Margin Booking Settlement",
-    "description": "Parent business scenario covering MTM valuation, margin calculation, booking, dispute handling, and settlement.",
-    "child_scenarios": [
-      "scenario.mtm_valuation",
-      "scenario.margin_calculation",
-      "scenario.booking",
-      "scenario.settlement"
-    ],
-    "scenario_flow": [
-      {
-        "source": "scenario.mtm_valuation",
-        "target": "scenario.margin_calculation",
-        "relation": "enables",
-        "description": "MTM valuation must be available before margin can be calculated."
-      },
-      {
-        "source": "scenario.margin_calculation",
-        "target": "scenario.booking",
-        "relation": "produces_input_for",
-        "description": "Booking is created from calculated margin results."
-      },
-      {
-        "source": "scenario.booking",
-        "target": "scenario.settlement",
-        "relation": "enables_when_undisputed",
-        "description": "Undisputed bookings proceed to settlement."
-      }
-    ],
-    "business_logic": [
-      {
-        "name": "Orchestrate margin lifecycle",
-        "description": "Connect valuation, margin calculation, booking, and settlement into one operating flow."
-      },
-      {
-        "name": "Preserve scenario handoffs",
-        "description": "Each child scenario produces the business context needed by the next scenario."
-      }
-    ],
-    "related_nodes": [
-      {
-        "id": "term.mtm",
-        "description": "MTM is the valuation concept used by this flow."
-      },
-      {
-        "id": "term.margin",
-        "description": "Margin is calculated from valuation and collateral context."
-      },
-      {
-        "id": "object.margin_call",
-        "description": "Margin calls are produced by margin calculation."
-      },
-      {
-        "id": "object.booking_order",
-        "description": "Booking orders are created from margin calls."
-      },
-      {
-        "id": "object.settlement_instruction",
-        "description": "Settlement instructions are created for undisputed bookings."
-      }
-    ],
-    "_source_file": "knowledge/nodes/scenarios/scenario.margin_booking_settlement.yaml"
-  },
-  "scenario.margin_calculation": {
-    "id": "scenario.margin_calculation",
-    "type": "scenario",
-    "name": "Margin Calculation",
-    "description": "Calculates required margin from MTM valuation and collateral balance.",
-    "parent_scenario": "scenario.margin_booking_settlement",
-    "business_logic": [
-      {
-        "name": "Read valuation and collateral",
-        "description": "Use MTM valuation and collateral balance as calculation inputs."
-      },
-      {
-        "name": "Calculate required margin",
-        "description": "Produce the required margin amount for each margin call."
-      },
-      {
-        "name": "Determine booking eligibility",
-        "description": "Mark calculated margin calls that can proceed to booking."
-      }
-    ],
-    "related_nodes": [
-      {
-        "id": "term.margin",
-        "relation": "uses_term",
-        "description": "Margin is the primary calculation output."
-      },
-      {
-        "id": "term.mtm",
-        "relation": "uses_term",
-        "description": "MTM valuation is an input to margin calculation."
-      },
-      {
-        "id": "object.margin_call",
-        "relation": "produces",
-        "description": "Margin calculation produces margin calls."
-      },
-      {
-        "id": "table.risk.mtm_valuation",
-        "description": "Source table for MTM values."
-      },
-      {
-        "id": "table.collateral.collateral_balance",
-        "description": "Source table for available collateral."
-      },
-      {
-        "id": "table.margin.margin_calculation",
-        "description": "Output table for margin calculation results."
-      },
-      {
-        "id": "pipeline.airflow.margin_calculation_job",
-        "description": "Pipeline that computes margin."
-      }
-    ],
-    "_source_file": "knowledge/nodes/scenarios/scenario.margin_calculation.yaml"
-  },
-  "scenario.mtm_valuation": {
-    "id": "scenario.mtm_valuation",
-    "type": "scenario",
-    "name": "MTM Valuation",
-    "description": "Values positions using mark-to-market inputs and produces valuation records.",
-    "parent_scenario": "scenario.margin_booking_settlement",
-    "business_logic": [
-      {
-        "name": "Ingest counterparty MTM",
-        "description": "Receive daily counterparty valuation inputs."
-      },
-      {
-        "name": "Normalize valuation records",
-        "description": "Convert feed rows into governed MTM valuation records by position and date."
-      }
-    ],
-    "related_nodes": [
-      {
-        "id": "term.mtm",
-        "relation": "uses_term",
-        "description": "MTM is the core valuation concept in this scenario."
-      },
-      {
-        "id": "object.position",
-        "relation": "values",
-        "description": "Positions are valued during MTM valuation."
-      },
-      {
-        "id": "object.mtm_valuation",
-        "relation": "produces",
-        "description": "MTM valuation records are produced for positions."
-      },
-      {
-        "id": "feedfile.s3.counterparty_mtm_feed",
-        "description": "External MTM feed provides input valuation values."
-      },
-      {
-        "id": "pipeline.airflow.daily_mtm_valuation",
-        "description": "Pipeline loads and normalizes MTM valuation data."
-      },
-      {
-        "id": "table.risk.mtm_valuation",
-        "description": "Table stores normalized MTM valuation records."
-      }
-    ],
-    "_source_file": "knowledge/nodes/scenarios/scenario.mtm_valuation.yaml"
-  },
-  "scenario.settlement": {
-    "id": "scenario.settlement",
-    "type": "scenario",
-    "name": "Settlement",
-    "description": "Creates settlement instructions for undisputed booking orders.",
-    "parent_scenario": "scenario.margin_booking_settlement",
-    "business_logic": [
-      {
-        "name": "Confirm undisputed booking",
-        "description": "Settlement can proceed only when booking status is undisputed."
-      },
-      {
-        "name": "Create settlement instruction",
-        "description": "Generate settlement instructions from eligible booking orders."
-      },
-      {
-        "name": "Monitor settlement operations",
-        "description": "Serve booking and settlement status to operational dashboards."
-      }
-    ],
-    "related_nodes": [
-      {
-        "id": "term.settlement",
-        "relation": "uses_term",
-        "description": "Settlement is the process of creating settlement instructions."
-      },
-      {
-        "id": "term.undisputed",
-        "relation": "uses_term",
-        "description": "Undisputed status is required before settlement can proceed."
-      },
-      {
-        "id": "object.booking_order",
-        "relation": "consumes",
-        "description": "Settlement depends on booking order status."
-      },
-      {
-        "id": "object.settlement_instruction",
-        "relation": "produces",
-        "description": "Settlement produces settlement instructions."
-      },
-      {
-        "id": "table.booking.booking_order",
-        "description": "Source table for booking order status."
-      },
-      {
-        "id": "table.settlement.settlement_instruction",
-        "description": "Table stores settlement instructions."
-      },
-      {
-        "id": "view.settlement.v_margin_settlement_summary",
-        "description": "View combines settlement, booking, and margin status for serving."
-      },
-      {
-        "id": "api.margin.get_margin_settlement_summary",
-        "description": "API serves settlement summary data to consumers."
-      },
-      {
-        "id": "dashboard.powerbi.margin_operations",
-        "description": "Dashboard monitors booking and settlement status."
-      }
-    ],
-    "_source_file": "knowledge/nodes/scenarios/scenario.settlement.yaml"
-  },
-  "table.booking.booking_order": {
-    "id": "table.booking.booking_order",
+  "table.support.refund_request": {
+    "id": "table.support.refund_request",
     "type": "table",
-    "name": "booking_order",
-    "description": "Stores booking orders created from eligible margin calls.",
-    "schema": "booking",
+    "name": "refund_request",
+    "description": "Stores customer-submitted refund requests and request status.",
+    "owner": "Support Data Engineering",
+    "schema": "support",
     "columns": [
       {
-        "name": "booking_id",
-        "data_type": "varchar",
-        "nullable": false
-      },
-      {
-        "name": "margin_call_id",
-        "data_type": "varchar",
-        "nullable": false
-      },
-      {
-        "name": "booking_amount",
-        "data_type": "decimal",
-        "nullable": false
-      },
-      {
-        "name": "dispute_status",
+        "name": "refund_request_id",
         "data_type": "varchar",
         "nullable": false,
-        "description": "Indicates whether booking is disputed or undisputed.",
-        "related_nodes": [
-          {
-            "id": "term.undisputed",
-            "description": "Undisputed status allows settlement to proceed."
-          },
-          {
-            "id": "object.booking_order.dispute_status",
-            "description": "This column maps to booking order dispute status."
-          }
-        ]
-      }
-    ],
-    "primary_key": [
-      "booking_id"
-    ],
-    "related_nodes": [
-      {
-        "id": "object.booking_order",
-        "description": "This table stores booking orders."
+        "description": "Primary key for the refund request."
       },
       {
-        "id": "scenario.booking",
-        "description": "This table supports booking."
-      }
-    ],
-    "quality_checks": [
-      {
-        "name": "Disputed Booking Must Not Be Settled",
-        "check_type": "conditional_expression",
-        "fields": [
-          "dispute_status"
-        ],
-        "expectation": "settlement can proceed only when dispute_status == \"undisputed\"",
-        "validates": [
-          {
-            "id": "object.booking_order",
-            "description": "Booking order status must control whether settlement can proceed."
-          },
-          {
-            "id": "term.undisputed",
-            "description": "The undisputed status is required before settlement."
-          },
-          {
-            "id": "scenario.settlement",
-            "description": "Settlement should only process undisputed bookings."
-          }
-        ]
-      }
-    ],
-    "_source_file": "knowledge/nodes/tables/table.booking.booking_order.yaml"
-  },
-  "table.collateral.collateral_balance": {
-    "id": "table.collateral.collateral_balance",
-    "type": "table",
-    "name": "collateral_balance",
-    "description": "Stores available collateral balance by account and business date.",
-    "schema": "collateral",
-    "columns": [
-      {
-        "name": "account_id",
+        "name": "order_id",
         "data_type": "varchar",
-        "nullable": false
+        "nullable": false,
+        "term": "term.order_identifier",
+        "description": "Customer order referenced by the refund request.",
+        "lineage": {
+          "upstream": [
+            {
+              "id": "column.sales.order_header.order_id",
+              "description": "Refund request stores the order identifier from order header."
+            }
+          ],
+          "downstream": [
+            {
+              "id": "column.analytics.v_refund_lifecycle.order_id",
+              "description": "Refund lifecycle view exposes order id for reporting."
+            }
+          ]
+        }
       },
       {
-        "name": "available_collateral",
-        "data_type": "decimal",
-        "nullable": false
-      },
-      {
-        "name": "business_date",
-        "data_type": "date",
-        "nullable": false
-      }
-    ],
-    "primary_key": [
-      "account_id",
-      "business_date"
-    ],
-    "related_nodes": [
-      {
-        "id": "scenario.margin_calculation",
-        "description": "Collateral balance is used in margin calculation."
-      }
-    ],
-    "quality_checks": [
-      {
-        "name": "Available Collateral Non Negative",
-        "check_type": "range",
-        "fields": [
-          "available_collateral"
-        ],
-        "expectation": "available_collateral >= 0",
-        "validates": [
-          {
-            "id": "scenario.margin_calculation",
-            "description": "Margin calculation depends on valid collateral inputs."
-          },
-          {
-            "id": "term.margin",
-            "description": "Available collateral contributes to margin requirement calculation."
-          }
-        ]
-      }
-    ],
-    "_source_file": "knowledge/nodes/tables/table.collateral.collateral_balance.yaml"
-  },
-  "table.margin.margin_calculation": {
-    "id": "table.margin.margin_calculation",
-    "type": "table",
-    "name": "margin_calculation",
-    "description": "Stores calculated margin requirement and booking eligibility.",
-    "schema": "margin",
-    "columns": [
-      {
-        "name": "margin_call_id",
-        "data_type": "varchar",
-        "nullable": false
-      },
-      {
-        "name": "valuation_id",
-        "data_type": "varchar",
-        "nullable": false
-      },
-      {
-        "name": "margin_requirement",
+        "name": "requested_amount",
         "data_type": "decimal",
         "nullable": false,
-        "description": "Required margin amount calculated from MTM valuation and collateral.",
-        "related_nodes": [
-          {
-            "id": "term.margin",
-            "description": "This column stores the calculated margin requirement."
-          },
-          {
-            "id": "object.margin_call.margin_requirement",
-            "description": "This column maps to the margin requirement property."
-          }
-        ]
+        "term": "term.refund_amount",
+        "description": "Amount requested by the customer.",
+        "lineage": {
+          "downstream": [
+            {
+              "id": "column.support.refund_decision.approved_amount",
+              "description": "Decision approved amount is reviewed against requested amount."
+            },
+            {
+              "id": "column.analytics.v_refund_lifecycle.requested_amount",
+              "description": "Refund lifecycle view exposes requested amount."
+            }
+          ]
+        }
       },
       {
-        "name": "booking_eligible",
-        "data_type": "boolean",
-        "nullable": false
-      }
-    ],
-    "primary_key": [
-      "margin_call_id"
-    ],
-    "related_nodes": [
-      {
-        "id": "object.margin_call",
-        "description": "This table stores margin call calculation results."
-      },
-      {
-        "id": "scenario.margin_calculation",
-        "description": "This table supports margin calculation."
-      }
-    ],
-    "quality_checks": [
-      {
-        "name": "Margin Requirement Non Negative",
-        "check_type": "range",
-        "fields": [
-          "margin_requirement"
-        ],
-        "expectation": "margin_requirement >= 0",
-        "validates": [
-          {
-            "id": "term.margin",
-            "description": "Margin requirement should not be negative."
-          },
-          {
-            "id": "object.margin_call",
-            "description": "Margin call records require a valid required margin amount."
-          },
-          {
-            "id": "scenario.margin_calculation",
-            "description": "Margin calculation output must satisfy this rule."
-          }
-        ]
-      }
-    ],
-    "_source_file": "knowledge/nodes/tables/table.margin.margin_calculation.yaml"
-  },
-  "table.risk.mtm_valuation": {
-    "id": "table.risk.mtm_valuation",
-    "type": "table",
-    "name": "mtm_valuation",
-    "description": "Stores normalized MTM valuation records by position and valuation date.",
-    "schema": "risk",
-    "columns": [
-      {
-        "name": "valuation_id",
+        "name": "request_status",
         "data_type": "varchar",
-        "nullable": false
-      },
-      {
-        "name": "position_id",
-        "data_type": "varchar",
-        "nullable": false
-      },
-      {
-        "name": "mtm_value",
-        "data_type": "decimal",
         "nullable": false,
-        "description": "MTM value for the position.",
-        "related_nodes": [
-          {
-            "id": "term.mtm",
-            "description": "This column stores the MTM amount."
-          },
-          {
-            "id": "object.mtm_valuation.mtm_value",
-            "description": "This column maps to the MTM valuation value property."
-          }
-        ]
-      },
-      {
-        "name": "valuation_date",
-        "data_type": "date",
-        "nullable": false
+        "term": "term.approval_status",
+        "description": "Current request status.",
+        "lineage": {
+          "downstream": [
+            {
+              "id": "column.analytics.v_refund_lifecycle.request_status",
+              "description": "Refund lifecycle view exposes request status."
+            }
+          ]
+        }
       }
     ],
     "primary_key": [
-      "valuation_id"
-    ],
-    "related_nodes": [
-      {
-        "id": "object.mtm_valuation",
-        "description": "This table stores MTM valuation records."
-      },
-      {
-        "id": "scenario.mtm_valuation",
-        "description": "This table supports MTM valuation."
-      }
-    ],
-    "quality_checks": [
-      {
-        "name": "MTM Value Not Null",
-        "check_type": "not_null",
-        "fields": [
-          "mtm_value"
-        ],
-        "validates": [
-          {
-            "id": "term.mtm",
-            "description": "MTM values must be present for valuation meaning."
-          },
-          {
-            "id": "object.mtm_valuation",
-            "description": "MTM valuation records require a valuation amount."
-          }
-        ]
-      },
-      {
-        "name": "Valuation Date Not Null",
-        "check_type": "not_null",
-        "fields": [
-          "valuation_date"
-        ],
-        "validates": [
-          {
-            "id": "scenario.mtm_valuation",
-            "description": "Valuation records must be tied to a valuation date."
-          },
-          {
-            "id": "object.mtm_valuation",
-            "description": "MTM valuation records require the valuation date."
-          }
-        ]
-      }
-    ],
-    "_source_file": "knowledge/nodes/tables/table.risk.mtm_valuation.yaml"
-  },
-  "table.settlement.settlement_instruction": {
-    "id": "table.settlement.settlement_instruction",
-    "type": "table",
-    "name": "settlement_instruction",
-    "description": "Stores settlement instructions created for undisputed booking orders.",
-    "schema": "settlement",
-    "columns": [
-      {
-        "name": "settlement_id",
-        "data_type": "varchar",
-        "nullable": false
-      },
-      {
-        "name": "booking_id",
-        "data_type": "varchar",
-        "nullable": false
-      },
-      {
-        "name": "settlement_amount",
-        "data_type": "decimal",
-        "nullable": false
-      },
-      {
-        "name": "settlement_status",
-        "data_type": "varchar",
-        "nullable": false
-      }
-    ],
-    "primary_key": [
-      "settlement_id"
-    ],
-    "related_nodes": [
-      {
-        "id": "object.settlement_instruction",
-        "description": "This table stores settlement instructions."
-      },
-      {
-        "id": "scenario.settlement",
-        "description": "This table supports settlement."
-      }
+      "refund_request_id"
     ],
     "lineage": {
       "upstream": [
         {
-          "id": "table.booking.booking_order",
-          "relation": "derived_from",
-          "description": "Settlement instructions are created from undisputed booking orders."
+          "id": "table.sales.order_header",
+          "relation": "READS_FROM",
+          "description": "Refund request records reference source orders."
+        }
+      ],
+      "downstream": [
+        {
+          "id": "table.support.refund_decision",
+          "relation": "READS_FROM",
+          "description": "Refund decisions read refund request records."
+        },
+        {
+          "id": "view.analytics.v_refund_lifecycle",
+          "relation": "READS_FROM",
+          "description": "Refund lifecycle view reads refund requests."
         }
       ]
     },
-    "quality_checks": [
+    "evidence": [
       {
-        "name": "Settlement Amount Non Negative",
-        "check_type": "range",
-        "fields": [
-          "settlement_amount"
-        ],
-        "expectation": "settlement_amount >= 0",
-        "validates": [
-          {
-            "id": "term.settlement",
-            "description": "Settlement amounts should be valid non-negative amounts."
-          },
-          {
-            "id": "object.settlement_instruction",
-            "description": "Settlement instructions require valid settlement amounts."
-          },
-          {
-            "id": "scenario.settlement",
-            "description": "Settlement outputs must satisfy this rule."
-          }
-        ]
+        "kind": "db_schema",
+        "ref": "evidence/schema_snapshots/support_refund_request.json"
       }
     ],
-    "_source_file": "knowledge/nodes/tables/table.settlement.settlement_instruction.yaml"
+    "verified": {
+      "status": false,
+      "reason": "generated_from_skill_demo"
+    },
+    "_source_file": "knowledge/nodes/tables/table.support.refund_request.yaml"
   },
-  "term.booking": {
-    "id": "term.booking",
+  "term.approval_status": {
+    "id": "term.approval_status",
     "type": "term",
-    "name": "Booking",
-    "description": "Business term for creating a booking order from an eligible margin call.",
-    "definition": "Booking creates an operational order from a calculated margin call before settlement.",
+    "name": "Approval Status",
+    "description": "Review state of a refund request or refund decision.",
+    "definition": "Approval status indicates whether a refund is pending review, approved, rejected, or cancelled.",
     "aliases": [
-      "book margin",
-      "booking order creation"
+      "review status"
     ],
-    "related_nodes": [
+    "owner": "Commerce Operations",
+    "evidence": [
       {
-        "id": "object.booking_order",
-        "relation": "defines",
-        "description": "Booking Order is the object created by booking."
-      },
-      {
-        "id": "scenario.booking",
-        "relation": "explains",
-        "description": "This scenario describes how booking orders are created."
+        "kind": "source_code",
+        "ref": "services/refunds/status_codes.py"
       }
     ],
-    "_source_file": "knowledge/nodes/terms/term.booking.yaml"
+    "verified": {
+      "status": false,
+      "reason": "generated_from_expected_status_model"
+    },
+    "_source_file": "knowledge/nodes/terms/term.approval_status.yaml"
   },
-  "term.margin": {
-    "id": "term.margin",
+  "term.order_identifier": {
+    "id": "term.order_identifier",
     "type": "term",
-    "name": "Margin",
-    "description": "Business term for collateral requirement calculated from exposure and valuation.",
-    "definition": "Margin is the required collateral amount calculated from MTM valuation, exposure, and available collateral.",
+    "name": "Order Identifier",
+    "description": "Stable identifier assigned to a customer order.",
+    "definition": "A unique business key used to identify and join records that refer to the same customer order.",
     "aliases": [
-      "margin requirement",
-      "required margin"
+      "order id",
+      "order number"
     ],
-    "related_nodes": [
+    "owner": "Commerce Data Steward",
+    "evidence": [
       {
-        "id": "object.margin_call",
-        "relation": "defines",
-        "description": "Margin calls are created when a margin requirement must be booked."
-      },
-      {
-        "id": "column.margin.margin_calculation.margin_requirement",
-        "description": "This column stores the calculated margin requirement."
-      },
-      {
-        "id": "scenario.margin_calculation",
-        "relation": "explains",
-        "description": "This scenario calculates margin."
+        "kind": "data_dictionary",
+        "ref": "evidence/commerce_data_dictionary.md#order_identifier"
       }
     ],
-    "_source_file": "knowledge/nodes/terms/term.margin.yaml"
+    "verified": {
+      "status": false,
+      "reason": "demo_yaml_generated_for_skill_example"
+    },
+    "_source_file": "knowledge/nodes/terms/term.order_identifier.yaml"
   },
-  "term.mtm": {
-    "id": "term.mtm",
+  "term.payment_refund": {
+    "id": "term.payment_refund",
     "type": "term",
-    "name": "MTM",
-    "description": "Business term for mark-to-market valuation.",
-    "definition": "Mark-to-market valuation estimates the current value of a position using market inputs.",
+    "name": "Payment Refund",
+    "description": "Payment processor transaction that returns funds to the customer.",
+    "definition": "A payment refund is the financial transaction sent to the payment provider after a refund decision is approved.",
     "aliases": [
-      "mark-to-market",
-      "Mark to Market",
-      "MTM Value"
+      "refund transaction"
     ],
-    "related_nodes": [
+    "owner": "Payments Data Steward",
+    "evidence": [
       {
-        "id": "term.valuation",
-        "relation": "specializes",
-        "description": "MTM is a specific type of valuation."
-      },
-      {
-        "id": "object.mtm_valuation",
-        "relation": "defines",
-        "description": "MTM Valuation is the business object that records this valuation."
-      },
-      {
-        "id": "column.risk.mtm_valuation.mtm_value",
-        "description": "This column stores the MTM value used by margin calculation."
-      },
-      {
-        "id": "scenario.mtm_valuation",
-        "relation": "explains",
-        "description": "This scenario defines how MTM values are loaded and normalized."
+        "kind": "api_contract",
+        "ref": "services/payments/openapi.yaml#/refunds"
       }
     ],
-    "_source_file": "knowledge/nodes/terms/term.mtm.yaml"
+    "verified": {
+      "status": false,
+      "reason": "needs_payment_owner_confirmation"
+    },
+    "_source_file": "knowledge/nodes/terms/term.payment_refund.yaml"
   },
-  "term.settlement": {
-    "id": "term.settlement",
+  "term.refund_amount": {
+    "id": "term.refund_amount",
     "type": "term",
-    "name": "Settlement",
-    "description": "Business term for creating settlement instructions after booking.",
-    "definition": "Settlement creates instructions to move cash or collateral after a booking is eligible.",
+    "name": "Refund Amount",
+    "description": "Monetary amount requested or approved for refund.",
+    "definition": "Refund amount is the currency value that may be returned to the customer after review and payment processing.",
     "aliases": [
-      "settle",
-      "settlement instruction"
+      "refund value"
     ],
-    "related_nodes": [
+    "owner": "Finance Data Steward",
+    "evidence": [
       {
-        "id": "object.settlement_instruction",
-        "relation": "defines",
-        "description": "Settlement Instruction is the object produced by settlement."
-      },
-      {
-        "id": "scenario.settlement",
-        "relation": "explains",
-        "description": "This scenario describes settlement after booking."
+        "kind": "data_dictionary",
+        "ref": "evidence/finance_metrics.md#refund_amount"
       }
     ],
-    "_source_file": "knowledge/nodes/terms/term.settlement.yaml"
+    "verified": {
+      "status": false,
+      "reason": "needs_finance_confirmation"
+    },
+    "_source_file": "knowledge/nodes/terms/term.refund_amount.yaml"
   },
-  "term.undisputed": {
-    "id": "term.undisputed",
+  "term.refund_request": {
+    "id": "term.refund_request",
     "type": "term",
-    "name": "Undisputed",
-    "description": "Business status indicating no active dispute blocks settlement.",
-    "definition": "A booking is undisputed when no active dispute prevents settlement from proceeding.",
+    "name": "Refund Request",
+    "description": "Customer request to return money for an order or order item.",
+    "definition": "A refund request records the customer's intent, requested amount, reason, and current review status.",
     "aliases": [
-      "no dispute",
-      "dispute cleared"
+      "return request",
+      "refund case"
     ],
-    "related_nodes": [
+    "owner": "Commerce Operations",
+    "evidence": [
       {
-        "id": "object.booking_order",
-        "relation": "qualifies",
-        "description": "Booking orders must be undisputed before settlement."
-      },
-      {
-        "id": "scenario.settlement",
-        "relation": "explains",
-        "description": "Settlement uses undisputed status as an eligibility condition."
+        "kind": "policy",
+        "ref": "evidence/refund_policy.md"
       }
     ],
-    "_source_file": "knowledge/nodes/terms/term.undisputed.yaml"
+    "verified": {
+      "status": false,
+      "reason": "needs_domain_owner_confirmation"
+    },
+    "_source_file": "knowledge/nodes/terms/term.refund_request.yaml"
   },
-  "view.settlement.v_margin_settlement_summary": {
-    "id": "view.settlement.v_margin_settlement_summary",
+  "view.analytics.v_refund_lifecycle": {
+    "id": "view.analytics.v_refund_lifecycle",
     "type": "view",
-    "name": "v_margin_settlement_summary",
-    "description": "View combining margin calculation, booking order, and settlement instruction status.",
-    "schema": "settlement",
-    "definition": "Combines margin calls with booking and settlement status for operational monitoring.",
-    "sql": "select\n  mc.margin_call_id,\n  mc.margin_requirement,\n  bo.booking_id,\n  bo.dispute_status,\n  si.settlement_status\nfrom margin.margin_calculation mc\nleft join booking.booking_order bo\n  on mc.margin_call_id = bo.margin_call_id\nleft join settlement.settlement_instruction si\n  on bo.booking_id = si.booking_id\n",
+    "name": "v_refund_lifecycle",
+    "description": "Analytics view joining refund requests, review decisions, and payment refund status.",
+    "owner": "Analytics Engineering",
+    "schema": "analytics",
+    "definition": "Joins refund_request to refund_decision and payment_refund to show end-to-end refund lifecycle state.",
+    "sql": "select\n  rr.refund_request_id,\n  rr.order_id,\n  rr.requested_amount,\n  rr.request_status,\n  rd.decision_status,\n  rd.approved_amount,\n  pr.refunded_amount,\n  pr.payment_status\nfrom support.refund_request rr\nleft join support.refund_decision rd\n  on rr.refund_request_id = rd.refund_request_id\nleft join payments.payment_refund pr\n  on rd.decision_id = pr.decision_id\n",
     "columns": [
       {
-        "name": "margin_call_id",
+        "name": "refund_request_id",
         "data_type": "varchar",
-        "lineage": [
-          {
-            "source": "column.margin.margin_calculation.margin_call_id",
-            "description": "Directly selected from margin_calculation.margin_call_id."
-          }
-        ]
+        "description": "Refund request identifier selected from refund_request.",
+        "lineage": {
+          "upstream": [
+            {
+              "id": "column.support.refund_request.refund_request_id",
+              "description": "Selected from refund_request."
+            }
+          ]
+        }
       },
       {
-        "name": "margin_requirement",
+        "name": "order_id",
+        "data_type": "varchar",
+        "term": "term.order_identifier",
+        "description": "Order identifier selected from refund_request.",
+        "lineage": {
+          "upstream": [
+            {
+              "id": "column.support.refund_request.order_id",
+              "description": "Selected from refund_request."
+            }
+          ]
+        }
+      },
+      {
+        "name": "requested_amount",
         "data_type": "decimal",
-        "lineage": [
-          {
-            "source": "column.margin.margin_calculation.margin_requirement",
-            "description": "Directly selected from margin_calculation.margin_requirement."
-          }
-        ]
+        "term": "term.refund_amount",
+        "description": "Requested amount selected from refund_request.",
+        "lineage": {
+          "upstream": [
+            {
+              "id": "column.support.refund_request.requested_amount",
+              "description": "Selected from refund_request."
+            }
+          ]
+        }
       },
       {
-        "name": "booking_id",
+        "name": "request_status",
         "data_type": "varchar",
-        "lineage": [
-          {
-            "source": "column.booking.booking_order.booking_id",
-            "description": "Joined from booking_order by margin_call_id."
-          }
-        ]
+        "term": "term.approval_status",
+        "description": "Request status selected from refund_request.",
+        "lineage": {
+          "upstream": [
+            {
+              "id": "column.support.refund_request.request_status",
+              "description": "Selected from refund_request."
+            }
+          ]
+        }
       },
       {
-        "name": "dispute_status",
+        "name": "decision_status",
         "data_type": "varchar",
-        "lineage": [
-          {
-            "source": "column.booking.booking_order.dispute_status",
-            "description": "Joined from booking_order by margin_call_id."
-          }
-        ]
+        "term": "term.approval_status",
+        "description": "Decision status selected from refund_decision.",
+        "lineage": {
+          "upstream": [
+            {
+              "id": "column.support.refund_decision.decision_status",
+              "description": "Selected from refund_decision."
+            }
+          ]
+        }
       },
       {
-        "name": "settlement_status",
-        "data_type": "varchar",
-        "lineage": [
-          {
-            "source": "column.settlement.settlement_instruction.settlement_status",
-            "description": "Joined from settlement_instruction by booking_id."
-          }
-        ]
-      }
-    ],
-    "related_nodes": [
+        "name": "approved_amount",
+        "data_type": "decimal",
+        "term": "term.refund_amount",
+        "description": "Approved amount selected from refund_decision.",
+        "lineage": {
+          "upstream": [
+            {
+              "id": "column.support.refund_decision.approved_amount",
+              "description": "Selected from refund_decision."
+            }
+          ]
+        }
+      },
       {
-        "id": "scenario.margin_booking_settlement",
-        "description": "This view summarizes the parent margin booking settlement scenario."
+        "name": "refunded_amount",
+        "data_type": "decimal",
+        "term": "term.refund_amount",
+        "description": "Refunded amount selected from payment_refund.",
+        "lineage": {
+          "upstream": [
+            {
+              "id": "column.payments.payment_refund.refunded_amount",
+              "description": "Selected from payment_refund."
+            }
+          ]
+        }
+      },
+      {
+        "name": "payment_status",
+        "data_type": "varchar",
+        "description": "Payment processor status selected from payment_refund.",
+        "lineage": {
+          "upstream": [
+            {
+              "id": "column.payments.payment_refund.payment_status",
+              "description": "Selected from payment_refund."
+            }
+          ]
+        }
       }
     ],
     "lineage": {
       "upstream": [
         {
-          "id": "table.margin.margin_calculation",
-          "relation": "reads",
-          "description": "View reads margin calculation results."
+          "id": "table.support.refund_request",
+          "relation": "READS_FROM",
+          "description": "View reads refund request data."
         },
         {
-          "id": "table.booking.booking_order",
-          "relation": "reads",
-          "description": "View reads booking status."
+          "id": "table.support.refund_decision",
+          "relation": "READS_FROM",
+          "description": "View reads refund decision data."
         },
         {
-          "id": "table.settlement.settlement_instruction",
-          "relation": "reads",
-          "description": "View reads settlement status."
+          "id": "table.payments.payment_refund",
+          "relation": "READS_FROM",
+          "description": "View reads payment refund data."
         }
       ]
     },
-    "_source_file": "knowledge/nodes/views/view.settlement.v_margin_settlement_summary.yaml"
+    "evidence": [
+      {
+        "kind": "sql",
+        "ref": "analytics/views/v_refund_lifecycle.sql"
+      }
+    ],
+    "verified": {
+      "status": false,
+      "reason": "generated_from_skill_demo"
+    },
+    "_source_file": "knowledge/nodes/views/view.analytics.v_refund_lifecycle.yaml"
   }
 };

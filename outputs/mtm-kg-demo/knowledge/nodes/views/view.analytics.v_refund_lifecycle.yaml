@@ -1,0 +1,102 @@
+id: view.analytics.v_refund_lifecycle
+type: view
+name: v_refund_lifecycle
+description: Analytics view joining refund requests, review decisions, and payment refund status.
+owner: Analytics Engineering
+schema: analytics
+definition: Joins refund_request to refund_decision and payment_refund to show end-to-end refund lifecycle state.
+sql: |
+  select
+    rr.refund_request_id,
+    rr.order_id,
+    rr.requested_amount,
+    rr.request_status,
+    rd.decision_status,
+    rd.approved_amount,
+    pr.refunded_amount,
+    pr.payment_status
+  from support.refund_request rr
+  left join support.refund_decision rd
+    on rr.refund_request_id = rd.refund_request_id
+  left join payments.payment_refund pr
+    on rd.decision_id = pr.decision_id
+columns:
+  - name: refund_request_id
+    data_type: varchar
+    description: Refund request identifier selected from refund_request.
+    lineage:
+      upstream:
+        - id: column.support.refund_request.refund_request_id
+          description: Selected from refund_request.
+  - name: order_id
+    data_type: varchar
+    term: term.order_identifier
+    description: Order identifier selected from refund_request.
+    lineage:
+      upstream:
+        - id: column.support.refund_request.order_id
+          description: Selected from refund_request.
+  - name: requested_amount
+    data_type: decimal
+    term: term.refund_amount
+    description: Requested amount selected from refund_request.
+    lineage:
+      upstream:
+        - id: column.support.refund_request.requested_amount
+          description: Selected from refund_request.
+  - name: request_status
+    data_type: varchar
+    term: term.approval_status
+    description: Request status selected from refund_request.
+    lineage:
+      upstream:
+        - id: column.support.refund_request.request_status
+          description: Selected from refund_request.
+  - name: decision_status
+    data_type: varchar
+    term: term.approval_status
+    description: Decision status selected from refund_decision.
+    lineage:
+      upstream:
+        - id: column.support.refund_decision.decision_status
+          description: Selected from refund_decision.
+  - name: approved_amount
+    data_type: decimal
+    term: term.refund_amount
+    description: Approved amount selected from refund_decision.
+    lineage:
+      upstream:
+        - id: column.support.refund_decision.approved_amount
+          description: Selected from refund_decision.
+  - name: refunded_amount
+    data_type: decimal
+    term: term.refund_amount
+    description: Refunded amount selected from payment_refund.
+    lineage:
+      upstream:
+        - id: column.payments.payment_refund.refunded_amount
+          description: Selected from payment_refund.
+  - name: payment_status
+    data_type: varchar
+    description: Payment processor status selected from payment_refund.
+    lineage:
+      upstream:
+        - id: column.payments.payment_refund.payment_status
+          description: Selected from payment_refund.
+lineage:
+  upstream:
+    - id: table.support.refund_request
+      relation: READS_FROM
+      description: View reads refund request data.
+    - id: table.support.refund_decision
+      relation: READS_FROM
+      description: View reads refund decision data.
+    - id: table.payments.payment_refund
+      relation: READS_FROM
+      description: View reads payment refund data.
+evidence:
+  - kind: sql
+    ref: analytics/views/v_refund_lifecycle.sql
+verified:
+  status: false
+  reason: generated_from_skill_demo

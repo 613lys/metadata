@@ -1,0 +1,46 @@
+id: business_entity.customer_order
+type: business_entity
+name: Customer Order
+description: Confirmed customer purchase that can later be refunded.
+term: term.order_identifier
+owner: Commerce Operations
+tags:
+  - domain.commerce
+  - lifecycle.order
+properties:
+  - name: order_id
+    description: Stable identifier for the customer order.
+    semantic_role: identifier
+    term: term.order_identifier
+    maps_to:
+      - column.sales.order_header.order_id
+  - name: customer_id
+    description: Customer who placed the order.
+    semantic_role: dimension
+    maps_to:
+      - column.sales.order_header.customer_id
+  - name: order_total_amount
+    description: Gross order value before any later refund.
+    semantic_role: measure
+    maps_to:
+      - column.sales.order_header.order_total_amount
+  - name: order_created_at
+    description: Timestamp when the order was created.
+    semantic_role: time_dimension
+    maps_to:
+      - column.sales.order_header.order_created_at
+mapped_assets:
+  - id: table.sales.order_header
+    relation: IMPLEMENTED_BY
+    description: Order header table is the primary physical representation of customer orders.
+constraints:
+  - type: identity
+    severity: critical
+    description: Each customer order must have a stable order identifier.
+    expression: customer_order.order_id is not null
+evidence:
+  - kind: schema
+    ref: evidence/schema_snapshots/sales_order_header.json
+verified:
+  status: false
+  reason: generated_from_skill_demo

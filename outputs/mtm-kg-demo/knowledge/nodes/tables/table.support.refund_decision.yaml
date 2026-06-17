@@ -1,0 +1,62 @@
+id: table.support.refund_decision
+type: table
+name: refund_decision
+description: Stores review outcomes for refund requests.
+owner: Support Data Engineering
+schema: support
+columns:
+  - name: decision_id
+    data_type: varchar
+    nullable: false
+    description: Primary key for the refund decision.
+  - name: refund_request_id
+    data_type: varchar
+    nullable: false
+    description: Refund request reviewed by this decision.
+    lineage:
+      upstream:
+        - id: column.support.refund_request.refund_request_id
+          description: Decision references the reviewed refund request.
+  - name: approved_amount
+    data_type: decimal
+    nullable: true
+    term: term.refund_amount
+    description: Approved refund amount when the decision is approved.
+    lineage:
+      upstream:
+        - id: column.support.refund_request.requested_amount
+          description: Approved amount is determined from the requested amount and policy checks.
+      downstream:
+        - id: column.payments.payment_refund.refunded_amount
+          description: Payment refund amount is based on approved amount.
+        - id: column.analytics.v_refund_lifecycle.approved_amount
+          description: Refund lifecycle view exposes approved amount.
+  - name: decision_status
+    data_type: varchar
+    nullable: false
+    term: term.approval_status
+    description: Review outcome status.
+    lineage:
+      downstream:
+        - id: column.analytics.v_refund_lifecycle.decision_status
+          description: Refund lifecycle view exposes decision status.
+primary_key:
+  - decision_id
+lineage:
+  upstream:
+    - id: table.support.refund_request
+      relation: READS_FROM
+      description: Refund decision reads the refund request being reviewed.
+  downstream:
+    - id: table.payments.payment_refund
+      relation: READS_FROM
+      description: Payment refunds read approved refund decisions.
+    - id: view.analytics.v_refund_lifecycle
+      relation: READS_FROM
+      description: Refund lifecycle view reads decision outcomes.
+evidence:
+  - kind: db_schema
+    ref: evidence/schema_snapshots/support_refund_decision.json
+verified:
+  status: false
+  reason: generated_from_skill_demo

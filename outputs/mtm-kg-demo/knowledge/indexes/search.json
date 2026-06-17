@@ -1,372 +1,272 @@
 [
   {
-    "id": "api.margin.get_margin_booking_candidates",
-    "type": "api",
-    "text": "api.margin.get_margin_booking_candidates GET /margin/booking-candidates Returns eligible margin calls for booking users. scenario.booking API serves candidates for the booking scenario. object.margin_call API returns eligible margin calls. Candidate API Requires Business Date required_parameters scenario.booking Booking candidate selection must be scoped to a business date. object.margin_call The API returns eligible margin calls for booking."
+    "id": "business_entity.customer_order",
+    "type": "business_entity",
+    "text": "business_entity.customer_order Customer Order Confirmed customer purchase that can later be refunded. term.order_identifier domain.commerce lifecycle.order order_id Stable identifier for the customer order. term.order_identifier identifier customer_id Customer who placed the order. dimension order_total_amount Gross order value before any later refund. measure order_created_at Timestamp when the order was created. time_dimension identity Each customer order must have a stable order identifier. customer_order.order_id is not null critical"
   },
   {
-    "id": "api.margin.get_margin_settlement_summary",
-    "type": "api",
-    "text": "api.margin.get_margin_settlement_summary GET /margin/settlement-summary Returns margin, booking, and settlement status for operational dashboards. scenario.margin_booking_settlement API serves dashboard data for the parent scenario."
+    "id": "business_entity.payment_refund",
+    "type": "business_entity",
+    "text": "business_entity.payment_refund Payment Refund Payment processor refund transaction created after approval. term.payment_refund domain.payments lifecycle.payment business_entity.refund_decision DERIVES_FROM Payment refund is created from an approved refund decision. payment_refund_id Stable identifier for the payment refund transaction. identifier decision_id Refund decision that authorized the payment refund. identifier refunded_amount Amount sent to the payment provider for refund. term.refund_amount measure payment_status Processor status of the refund transaction. status reconciliation Refunded amount should reconcile to the approved amount for the decision. payment_refund.refunded_amount = refund_decision.approved_amount critical"
   },
   {
-    "id": "column.risk.mtm_valuation.mtm_value",
-    "type": "column",
-    "text": "column.risk.mtm_valuation.mtm_value mtm_value MTM value used as an input to margin calculation. term.mtm This column stores the MTM amount. object.mtm_valuation.mtm_value This column maps to the MTM valuation value property. scenario.margin_calculation Margin calculation uses this column as an input. MTM Value Not Null not_null term.mtm MTM value must exist for the MTM concept to be usable. object.mtm_valuation MTM valuation records require a valuation amount. scenario.margin_calculation Margin calculation depends on this MTM value input."
+    "id": "business_entity.refund_decision",
+    "type": "business_entity",
+    "text": "business_entity.refund_decision Refund Decision Business decision that approves or rejects a refund request. term.approval_status domain.commerce lifecycle.review business_entity.refund_request DERIVES_FROM Refund decision is derived from review of the refund request and policy checks. decision_id Stable identifier for the refund decision. identifier refund_request_id Refund request being reviewed. identifier approved_amount Amount approved for payment refund. term.refund_amount measure decision_status Approved or rejected decision state. term.approval_status status state_transition Payment refund can be created only for approved decisions. refund_decision.decision_status = 'approved' critical"
   },
   {
-    "id": "dashboard.powerbi.margin_operations",
-    "type": "dashboard",
-    "text": "dashboard.powerbi.margin_operations Margin Operations Dashboard for monitoring margin calls, booking dispute status, and settlement status. scenario.margin_booking_settlement Dashboard monitors the parent margin booking settlement scenario. scenario.settlement Dashboard shows settlement status."
+    "id": "business_entity.refund_request",
+    "type": "business_entity",
+    "text": "business_entity.refund_request Refund Request Customer request for a refund against an existing order. term.refund_request domain.commerce lifecycle.refund business_entity.customer_order REFERENCES A refund request references exactly one customer order. refund_request_id Stable identifier for the refund request. identifier order_id Customer order that the refund request belongs to. term.order_identifier identifier requested_amount Amount requested by the customer. term.refund_amount measure request_status Current lifecycle status of the request. term.approval_status status relationship_required A refund request must reference an existing customer order. refund_request.order_id exists in customer_order.order_id critical"
   },
   {
-    "id": "feedfile.s3.counterparty_mtm_feed",
-    "type": "feedfile",
-    "text": "feedfile.s3.counterparty_mtm_feed counterparty_mtm_feed.csv Daily counterparty-provided MTM feed. scenario.mtm_valuation Feed provides input data for MTM valuation. Counterparty MTM Feed Freshness freshness received within 24 hours scenario.mtm_valuation Fresh MTM feed data is required for daily MTM valuation. term.mtm The check protects the timeliness of MTM values."
-  },
-  {
-    "id": "object.booking_order",
-    "type": "object",
-    "text": "object.booking_order Booking Order Business object representing a booking created from an eligible margin call. object.margin_call created_from A booking order is created from a margin call. object.settlement_instruction creates_when_undisputed An undisputed booking order can lead to a settlement instruction. table.booking.booking_order implemented_by This table stores booking orders. api.margin.get_margin_booking_candidates served_by This API exposes candidates for booking."
-  },
-  {
-    "id": "object.margin_call",
-    "type": "object",
-    "text": "object.margin_call Margin Call Business object representing required margin generated from valuation and collateral data. object.mtm_valuation derived_from Margin calls are derived from MTM valuations. object.booking_order creates Eligible margin calls can create booking orders. table.margin.margin_calculation implemented_by This table stores margin call calculation results."
-  },
-  {
-    "id": "object.mtm_valuation",
-    "type": "object",
-    "text": "object.mtm_valuation MTM Valuation Business object representing a mark-to-market valuation record for a position. object.position values MTM valuation values a position. term.mtm defined_by MTM defines the valuation meaning. table.risk.mtm_valuation implemented_by This table stores MTM valuation records."
-  },
-  {
-    "id": "object.position",
-    "type": "object",
-    "text": "object.position Position Business object representing a trading or collateral position that can be valued. object.mtm_valuation valued_by Positions are valued by MTM valuation records. scenario.mtm_valuation involved_in Positions are the primary subject of MTM valuation."
-  },
-  {
-    "id": "object.settlement_instruction",
-    "type": "object",
-    "text": "object.settlement_instruction Settlement Instruction Business object representing a settlement instruction created for an undisputed booking. object.booking_order created_from Settlement instruction is created from an undisputed booking order. table.settlement.settlement_instruction implemented_by This table stores settlement instructions. scenario.settlement produced_by This object is produced in the settlement scenario."
-  },
-  {
-    "id": "pipeline.airflow.daily_mtm_valuation",
-    "type": "pipeline",
-    "text": "pipeline.airflow.daily_mtm_valuation daily_mtm_valuation Loads counterparty MTM feed and produces normalized MTM valuation records. scenario.mtm_valuation Pipeline implements the MTM valuation scenario. Daily MTM Valuation Pipeline Success pipeline_success last run succeeded scenario.mtm_valuation The valuation scenario depends on this pipeline completing successfully. object.mtm_valuation The pipeline produces MTM valuation records."
-  },
-  {
-    "id": "pipeline.airflow.margin_calculation_job",
-    "type": "pipeline",
-    "text": "pipeline.airflow.margin_calculation_job margin_calculation_job Calculates margin requirement from MTM valuation and collateral balance. scenario.margin_calculation Pipeline implements the margin calculation scenario. Margin Calculation Pipeline Success pipeline_success last run succeeded scenario.margin_calculation Margin calculation depends on this pipeline completing successfully. object.margin_call The pipeline produces margin call calculation results."
-  },
-  {
-    "id": "quality.margin.booking_order_has_valid_margin_call",
-    "type": "quality_check",
-    "text": "quality.margin.booking_order_has_valid_margin_call Booking Order Has Valid Margin Call Every booking order must reference an existing margin call produced by margin calculation."
-  },
-  {
-    "id": "scenario.booking",
-    "type": "scenario",
-    "text": "scenario.booking Booking Creates booking orders from margin calls after calculation. Select eligible margin calls Identify calculated margin calls that are eligible for booking. Create booking order Convert an eligible margin call into a booking order. term.booking uses_term Booking is the business action of creating a booking order. object.margin_call consumes Booking starts from an eligible margin call. object.booking_order produces Booking produces booking orders. table.margin.margin_calculation Source table for eligible booking candidates. api.margin.get_margin_booking_candidates API serves booking candidates from margin calculation. table.booking.booking_order Table stores booking orders."
-  },
-  {
-    "id": "scenario.margin_booking_settlement",
-    "type": "scenario",
-    "text": "scenario.margin_booking_settlement Margin Booking Settlement Parent business scenario covering MTM valuation, margin calculation, booking, dispute handling, and settlement. Orchestrate margin lifecycle Connect valuation, margin calculation, booking, and settlement into one operating flow. Preserve scenario handoffs Each child scenario produces the business context needed by the next scenario. term.mtm MTM is the valuation concept used by this flow. term.margin Margin is calculated from valuation and collateral context. object.margin_call Margin calls are produced by margin calculation. object.booking_order Booking orders are created from margin calls. object.settlement_instruction Settlement instructions are created for undisputed bookings."
-  },
-  {
-    "id": "scenario.margin_calculation",
-    "type": "scenario",
-    "text": "scenario.margin_calculation Margin Calculation Calculates required margin from MTM valuation and collateral balance. Read valuation and collateral Use MTM valuation and collateral balance as calculation inputs. Calculate required margin Produce the required margin amount for each margin call. Determine booking eligibility Mark calculated margin calls that can proceed to booking. term.margin uses_term Margin is the primary calculation output. term.mtm uses_term MTM valuation is an input to margin calculation. object.margin_call produces Margin calculation produces margin calls. table.risk.mtm_valuation Source table for MTM values. table.collateral.collateral_balance Source table for available collateral. table.margin.margin_calculation Output table for margin calculation results. pipeline.airflow.margin_calculation_job Pipeline that computes margin."
-  },
-  {
-    "id": "scenario.mtm_valuation",
-    "type": "scenario",
-    "text": "scenario.mtm_valuation MTM Valuation Values positions using mark-to-market inputs and produces valuation records. Ingest counterparty MTM Receive daily counterparty valuation inputs. Normalize valuation records Convert feed rows into governed MTM valuation records by position and date. term.mtm uses_term MTM is the core valuation concept in this scenario. object.position values Positions are valued during MTM valuation. object.mtm_valuation produces MTM valuation records are produced for positions. feedfile.s3.counterparty_mtm_feed External MTM feed provides input valuation values. pipeline.airflow.daily_mtm_valuation Pipeline loads and normalizes MTM valuation data. table.risk.mtm_valuation Table stores normalized MTM valuation records."
-  },
-  {
-    "id": "scenario.settlement",
-    "type": "scenario",
-    "text": "scenario.settlement Settlement Creates settlement instructions for undisputed booking orders. Confirm undisputed booking Settlement can proceed only when booking status is undisputed. Create settlement instruction Generate settlement instructions from eligible booking orders. Monitor settlement operations Serve booking and settlement status to operational dashboards. term.settlement uses_term Settlement is the process of creating settlement instructions. term.undisputed uses_term Undisputed status is required before settlement can proceed. object.booking_order consumes Settlement depends on booking order status. object.settlement_instruction produces Settlement produces settlement instructions. table.booking.booking_order Source table for booking order status. table.settlement.settlement_instruction Table stores settlement instructions. view.settlement.v_margin_settlement_summary View combines settlement, booking, and margin status for serving. api.margin.get_margin_settlement_summary API serves settlement summary data to consumers. dashboard.powerbi.margin_operations Dashboard monitors booking and settlement status."
-  },
-  {
-    "id": "table.booking.booking_order",
+    "id": "table.payments.payment_refund",
     "type": "table",
-    "text": "table.booking.booking_order booking_order Stores booking orders created from eligible margin calls. object.booking_order This table stores booking orders. scenario.booking This table supports booking. Disputed Booking Must Not Be Settled conditional_expression settlement can proceed only when dispute_status == \"undisputed\" object.booking_order Booking order status must control whether settlement can proceed. term.undisputed The undisputed status is required before settlement. scenario.settlement Settlement should only process undisputed bookings."
+    "text": "table.payments.payment_refund payment_refund Stores refund transactions submitted to the payment processor."
   },
   {
-    "id": "table.collateral.collateral_balance",
+    "id": "table.sales.order_header",
     "type": "table",
-    "text": "table.collateral.collateral_balance collateral_balance Stores available collateral balance by account and business date. scenario.margin_calculation Collateral balance is used in margin calculation. Available Collateral Non Negative range available_collateral >= 0 scenario.margin_calculation Margin calculation depends on valid collateral inputs. term.margin Available collateral contributes to margin requirement calculation."
+    "text": "table.sales.order_header order_header Stores one row per confirmed customer order."
   },
   {
-    "id": "table.margin.margin_calculation",
+    "id": "table.support.refund_decision",
     "type": "table",
-    "text": "table.margin.margin_calculation margin_calculation Stores calculated margin requirement and booking eligibility. object.margin_call This table stores margin call calculation results. scenario.margin_calculation This table supports margin calculation. Margin Requirement Non Negative range margin_requirement >= 0 term.margin Margin requirement should not be negative. object.margin_call Margin call records require a valid required margin amount. scenario.margin_calculation Margin calculation output must satisfy this rule."
+    "text": "table.support.refund_decision refund_decision Stores review outcomes for refund requests."
   },
   {
-    "id": "table.risk.mtm_valuation",
+    "id": "table.support.refund_request",
     "type": "table",
-    "text": "table.risk.mtm_valuation mtm_valuation Stores normalized MTM valuation records by position and valuation date. object.mtm_valuation This table stores MTM valuation records. scenario.mtm_valuation This table supports MTM valuation. MTM Value Not Null not_null term.mtm MTM values must be present for valuation meaning. object.mtm_valuation MTM valuation records require a valuation amount. Valuation Date Not Null not_null scenario.mtm_valuation Valuation records must be tied to a valuation date. object.mtm_valuation MTM valuation records require the valuation date."
+    "text": "table.support.refund_request refund_request Stores customer-submitted refund requests and request status."
   },
   {
-    "id": "table.settlement.settlement_instruction",
-    "type": "table",
-    "text": "table.settlement.settlement_instruction settlement_instruction Stores settlement instructions created for undisputed booking orders. object.settlement_instruction This table stores settlement instructions. scenario.settlement This table supports settlement. Settlement Amount Non Negative range settlement_amount >= 0 term.settlement Settlement amounts should be valid non-negative amounts. object.settlement_instruction Settlement instructions require valid settlement amounts. scenario.settlement Settlement outputs must satisfy this rule."
-  },
-  {
-    "id": "term.booking",
+    "id": "term.approval_status",
     "type": "term",
-    "text": "term.booking Booking Business term for creating a booking order from an eligible margin call. object.booking_order defines Booking Order is the object created by booking. scenario.booking explains This scenario describes how booking orders are created."
+    "text": "term.approval_status Approval Status Review state of a refund request or refund decision."
   },
   {
-    "id": "term.margin",
+    "id": "term.order_identifier",
     "type": "term",
-    "text": "term.margin Margin Business term for collateral requirement calculated from exposure and valuation. object.margin_call defines Margin calls are created when a margin requirement must be booked. column.margin.margin_calculation.margin_requirement This column stores the calculated margin requirement. scenario.margin_calculation explains This scenario calculates margin."
+    "text": "term.order_identifier Order Identifier Stable identifier assigned to a customer order."
   },
   {
-    "id": "term.mtm",
+    "id": "term.payment_refund",
     "type": "term",
-    "text": "term.mtm MTM Business term for mark-to-market valuation. term.valuation specializes MTM is a specific type of valuation. object.mtm_valuation defines MTM Valuation is the business object that records this valuation. column.risk.mtm_valuation.mtm_value This column stores the MTM value used by margin calculation. scenario.mtm_valuation explains This scenario defines how MTM values are loaded and normalized."
+    "text": "term.payment_refund Payment Refund Payment processor transaction that returns funds to the customer."
   },
   {
-    "id": "term.settlement",
+    "id": "term.refund_amount",
     "type": "term",
-    "text": "term.settlement Settlement Business term for creating settlement instructions after booking. object.settlement_instruction defines Settlement Instruction is the object produced by settlement. scenario.settlement explains This scenario describes settlement after booking."
+    "text": "term.refund_amount Refund Amount Monetary amount requested or approved for refund."
   },
   {
-    "id": "term.undisputed",
+    "id": "term.refund_request",
     "type": "term",
-    "text": "term.undisputed Undisputed Business status indicating no active dispute blocks settlement. object.booking_order qualifies Booking orders must be undisputed before settlement. scenario.settlement explains Settlement uses undisputed status as an eligibility condition."
+    "text": "term.refund_request Refund Request Customer request to return money for an order or order item."
   },
   {
-    "id": "view.settlement.v_margin_settlement_summary",
+    "id": "view.analytics.v_refund_lifecycle",
     "type": "view",
-    "text": "view.settlement.v_margin_settlement_summary v_margin_settlement_summary View combining margin calculation, booking order, and settlement instruction status. scenario.margin_booking_settlement This view summarizes the parent margin booking settlement scenario."
+    "text": "view.analytics.v_refund_lifecycle v_refund_lifecycle Analytics view joining refund requests, review decisions, and payment refund status."
   },
   {
-    "id": "api.margin.get_margin_booking_candidates.margin_call_id",
-    "type": "api_field",
-    "text": "api.margin.get_margin_booking_candidates.margin_call_id margin_call_id Margin call identifier."
+    "id": "business_entity.customer_order.order_id",
+    "type": "business_entity_property",
+    "text": "business_entity.customer_order.order_id order_id Stable identifier for the customer order."
   },
   {
-    "id": "api.margin.get_margin_booking_candidates.margin_requirement",
-    "type": "api_field",
-    "text": "api.margin.get_margin_booking_candidates.margin_requirement margin_requirement Required margin amount."
+    "id": "business_entity.customer_order.customer_id",
+    "type": "business_entity_property",
+    "text": "business_entity.customer_order.customer_id customer_id Customer who placed the order."
   },
   {
-    "id": "quality.api.margin.get_margin_booking_candidates.Candidate_API_Requires_Business_Date",
-    "type": "quality_check",
-    "text": "quality.api.margin.get_margin_booking_candidates.Candidate_API_Requires_Business_Date Candidate API Requires Business Date "
+    "id": "business_entity.customer_order.order_total_amount",
+    "type": "business_entity_property",
+    "text": "business_entity.customer_order.order_total_amount order_total_amount Gross order value before any later refund."
   },
   {
-    "id": "api.margin.get_margin_settlement_summary.margin_call_id",
-    "type": "api_field",
-    "text": "api.margin.get_margin_settlement_summary.margin_call_id margin_call_id Margin call identifier."
+    "id": "business_entity.customer_order.order_created_at",
+    "type": "business_entity_property",
+    "text": "business_entity.customer_order.order_created_at order_created_at Timestamp when the order was created."
   },
   {
-    "id": "api.margin.get_margin_settlement_summary.dispute_status",
-    "type": "api_field",
-    "text": "api.margin.get_margin_settlement_summary.dispute_status dispute_status Booking dispute status."
+    "id": "business_entity.payment_refund.payment_refund_id",
+    "type": "business_entity_property",
+    "text": "business_entity.payment_refund.payment_refund_id payment_refund_id Stable identifier for the payment refund transaction."
   },
   {
-    "id": "api.margin.get_margin_settlement_summary.settlement_status",
-    "type": "api_field",
-    "text": "api.margin.get_margin_settlement_summary.settlement_status settlement_status Settlement instruction status."
+    "id": "business_entity.payment_refund.decision_id",
+    "type": "business_entity_property",
+    "text": "business_entity.payment_refund.decision_id decision_id Refund decision that authorized the payment refund."
   },
   {
-    "id": "quality.column.risk.mtm_valuation.mtm_value.MTM_Value_Not_Null",
-    "type": "quality_check",
-    "text": "quality.column.risk.mtm_valuation.mtm_value.MTM_Value_Not_Null MTM Value Not Null "
+    "id": "business_entity.payment_refund.refunded_amount",
+    "type": "business_entity_property",
+    "text": "business_entity.payment_refund.refunded_amount refunded_amount Amount sent to the payment provider for refund."
   },
   {
-    "id": "dashboard.powerbi.margin_operations.margin_call_id",
-    "type": "dashboard_field",
-    "text": "dashboard.powerbi.margin_operations.margin_call_id margin_call_id Dashboard field displayed from column.settlement.v_margin_settlement_summary.margin_call_id."
+    "id": "business_entity.payment_refund.payment_status",
+    "type": "business_entity_property",
+    "text": "business_entity.payment_refund.payment_status payment_status Processor status of the refund transaction."
   },
   {
-    "id": "dashboard.powerbi.margin_operations.dispute_status",
-    "type": "dashboard_field",
-    "text": "dashboard.powerbi.margin_operations.dispute_status dispute_status Dashboard field displayed from column.settlement.v_margin_settlement_summary.dispute_status."
+    "id": "business_entity.refund_decision.decision_id",
+    "type": "business_entity_property",
+    "text": "business_entity.refund_decision.decision_id decision_id Stable identifier for the refund decision."
   },
   {
-    "id": "dashboard.powerbi.margin_operations.settlement_status",
-    "type": "dashboard_field",
-    "text": "dashboard.powerbi.margin_operations.settlement_status settlement_status Dashboard field displayed from column.settlement.v_margin_settlement_summary.settlement_status."
+    "id": "business_entity.refund_decision.refund_request_id",
+    "type": "business_entity_property",
+    "text": "business_entity.refund_decision.refund_request_id refund_request_id Refund request being reviewed."
   },
   {
-    "id": "feedfile.s3.counterparty_mtm_feed.position_id",
-    "type": "feedfile_field",
-    "text": "feedfile.s3.counterparty_mtm_feed.position_id position_id "
+    "id": "business_entity.refund_decision.approved_amount",
+    "type": "business_entity_property",
+    "text": "business_entity.refund_decision.approved_amount approved_amount Amount approved for payment refund."
   },
   {
-    "id": "feedfile.s3.counterparty_mtm_feed.mtm_value",
-    "type": "feedfile_field",
-    "text": "feedfile.s3.counterparty_mtm_feed.mtm_value mtm_value Counterparty-provided MTM value."
+    "id": "business_entity.refund_decision.decision_status",
+    "type": "business_entity_property",
+    "text": "business_entity.refund_decision.decision_status decision_status Approved or rejected decision state."
   },
   {
-    "id": "feedfile.s3.counterparty_mtm_feed.valuation_date",
-    "type": "feedfile_field",
-    "text": "feedfile.s3.counterparty_mtm_feed.valuation_date valuation_date "
+    "id": "business_entity.refund_request.refund_request_id",
+    "type": "business_entity_property",
+    "text": "business_entity.refund_request.refund_request_id refund_request_id Stable identifier for the refund request."
   },
   {
-    "id": "quality.feedfile.s3.counterparty_mtm_feed.Counterparty_MTM_Feed_Freshness",
-    "type": "quality_check",
-    "text": "quality.feedfile.s3.counterparty_mtm_feed.Counterparty_MTM_Feed_Freshness Counterparty MTM Feed Freshness received within 24 hours"
+    "id": "business_entity.refund_request.order_id",
+    "type": "business_entity_property",
+    "text": "business_entity.refund_request.order_id order_id Customer order that the refund request belongs to."
   },
   {
-    "id": "quality.pipeline.airflow.daily_mtm_valuation.Daily_MTM_Valuation_Pipeline_Success",
-    "type": "quality_check",
-    "text": "quality.pipeline.airflow.daily_mtm_valuation.Daily_MTM_Valuation_Pipeline_Success Daily MTM Valuation Pipeline Success last run succeeded"
+    "id": "business_entity.refund_request.requested_amount",
+    "type": "business_entity_property",
+    "text": "business_entity.refund_request.requested_amount requested_amount Amount requested by the customer."
   },
   {
-    "id": "quality.pipeline.airflow.margin_calculation_job.Margin_Calculation_Pipeline_Success",
-    "type": "quality_check",
-    "text": "quality.pipeline.airflow.margin_calculation_job.Margin_Calculation_Pipeline_Success Margin Calculation Pipeline Success last run succeeded"
+    "id": "business_entity.refund_request.request_status",
+    "type": "business_entity_property",
+    "text": "business_entity.refund_request.request_status request_status Current lifecycle status of the request."
   },
   {
-    "id": "column.booking.booking_order.booking_id",
+    "id": "column.payments.payment_refund.payment_refund_id",
     "type": "column",
-    "text": "column.booking.booking_order.booking_id booking_id "
+    "text": "column.payments.payment_refund.payment_refund_id payment_refund_id Primary key for the payment refund transaction."
   },
   {
-    "id": "column.booking.booking_order.margin_call_id",
+    "id": "column.payments.payment_refund.decision_id",
     "type": "column",
-    "text": "column.booking.booking_order.margin_call_id margin_call_id "
+    "text": "column.payments.payment_refund.decision_id decision_id Refund decision that authorized the transaction."
   },
   {
-    "id": "column.booking.booking_order.booking_amount",
+    "id": "column.payments.payment_refund.refunded_amount",
     "type": "column",
-    "text": "column.booking.booking_order.booking_amount booking_amount "
+    "text": "column.payments.payment_refund.refunded_amount refunded_amount Amount sent to the payment processor."
   },
   {
-    "id": "column.booking.booking_order.dispute_status",
+    "id": "column.payments.payment_refund.payment_status",
     "type": "column",
-    "text": "column.booking.booking_order.dispute_status dispute_status Indicates whether booking is disputed or undisputed."
+    "text": "column.payments.payment_refund.payment_status payment_status Processor status for the refund transaction."
   },
   {
-    "id": "quality.table.booking.booking_order.Disputed_Booking_Must_Not_Be_Settled",
-    "type": "quality_check",
-    "text": "quality.table.booking.booking_order.Disputed_Booking_Must_Not_Be_Settled Disputed Booking Must Not Be Settled settlement can proceed only when dispute_status == \"undisputed\""
-  },
-  {
-    "id": "column.collateral.collateral_balance.account_id",
+    "id": "column.sales.order_header.order_id",
     "type": "column",
-    "text": "column.collateral.collateral_balance.account_id account_id "
+    "text": "column.sales.order_header.order_id order_id Primary key for the customer order."
   },
   {
-    "id": "column.collateral.collateral_balance.available_collateral",
+    "id": "column.sales.order_header.customer_id",
     "type": "column",
-    "text": "column.collateral.collateral_balance.available_collateral available_collateral "
+    "text": "column.sales.order_header.customer_id customer_id Customer identifier on the order."
   },
   {
-    "id": "column.collateral.collateral_balance.business_date",
+    "id": "column.sales.order_header.order_total_amount",
     "type": "column",
-    "text": "column.collateral.collateral_balance.business_date business_date "
+    "text": "column.sales.order_header.order_total_amount order_total_amount Gross order amount at checkout."
   },
   {
-    "id": "quality.table.collateral.collateral_balance.Available_Collateral_Non_Negative",
-    "type": "quality_check",
-    "text": "quality.table.collateral.collateral_balance.Available_Collateral_Non_Negative Available Collateral Non Negative available_collateral >= 0"
-  },
-  {
-    "id": "column.margin.margin_calculation.margin_call_id",
+    "id": "column.sales.order_header.order_created_at",
     "type": "column",
-    "text": "column.margin.margin_calculation.margin_call_id margin_call_id "
+    "text": "column.sales.order_header.order_created_at order_created_at Timestamp when the order was confirmed."
   },
   {
-    "id": "column.margin.margin_calculation.valuation_id",
+    "id": "column.support.refund_decision.decision_id",
     "type": "column",
-    "text": "column.margin.margin_calculation.valuation_id valuation_id "
+    "text": "column.support.refund_decision.decision_id decision_id Primary key for the refund decision."
   },
   {
-    "id": "column.margin.margin_calculation.margin_requirement",
+    "id": "column.support.refund_decision.refund_request_id",
     "type": "column",
-    "text": "column.margin.margin_calculation.margin_requirement margin_requirement Required margin amount calculated from MTM valuation and collateral."
+    "text": "column.support.refund_decision.refund_request_id refund_request_id Refund request reviewed by this decision."
   },
   {
-    "id": "column.margin.margin_calculation.booking_eligible",
+    "id": "column.support.refund_decision.approved_amount",
     "type": "column",
-    "text": "column.margin.margin_calculation.booking_eligible booking_eligible "
+    "text": "column.support.refund_decision.approved_amount approved_amount Approved refund amount when the decision is approved."
   },
   {
-    "id": "quality.table.margin.margin_calculation.Margin_Requirement_Non_Negative",
-    "type": "quality_check",
-    "text": "quality.table.margin.margin_calculation.Margin_Requirement_Non_Negative Margin Requirement Non Negative margin_requirement >= 0"
-  },
-  {
-    "id": "column.risk.mtm_valuation.valuation_id",
+    "id": "column.support.refund_decision.decision_status",
     "type": "column",
-    "text": "column.risk.mtm_valuation.valuation_id valuation_id "
+    "text": "column.support.refund_decision.decision_status decision_status Review outcome status."
   },
   {
-    "id": "column.risk.mtm_valuation.position_id",
+    "id": "column.support.refund_request.refund_request_id",
     "type": "column",
-    "text": "column.risk.mtm_valuation.position_id position_id "
+    "text": "column.support.refund_request.refund_request_id refund_request_id Primary key for the refund request."
   },
   {
-    "id": "column.risk.mtm_valuation.valuation_date",
+    "id": "column.support.refund_request.order_id",
     "type": "column",
-    "text": "column.risk.mtm_valuation.valuation_date valuation_date "
+    "text": "column.support.refund_request.order_id order_id Customer order referenced by the refund request."
   },
   {
-    "id": "quality.table.risk.mtm_valuation.MTM_Value_Not_Null",
-    "type": "quality_check",
-    "text": "quality.table.risk.mtm_valuation.MTM_Value_Not_Null MTM Value Not Null "
-  },
-  {
-    "id": "quality.table.risk.mtm_valuation.Valuation_Date_Not_Null",
-    "type": "quality_check",
-    "text": "quality.table.risk.mtm_valuation.Valuation_Date_Not_Null Valuation Date Not Null "
-  },
-  {
-    "id": "column.settlement.settlement_instruction.settlement_id",
+    "id": "column.support.refund_request.requested_amount",
     "type": "column",
-    "text": "column.settlement.settlement_instruction.settlement_id settlement_id "
+    "text": "column.support.refund_request.requested_amount requested_amount Amount requested by the customer."
   },
   {
-    "id": "column.settlement.settlement_instruction.booking_id",
+    "id": "column.support.refund_request.request_status",
     "type": "column",
-    "text": "column.settlement.settlement_instruction.booking_id booking_id "
+    "text": "column.support.refund_request.request_status request_status Current request status."
   },
   {
-    "id": "column.settlement.settlement_instruction.settlement_amount",
+    "id": "column.analytics.v_refund_lifecycle.refund_request_id",
     "type": "column",
-    "text": "column.settlement.settlement_instruction.settlement_amount settlement_amount "
+    "text": "column.analytics.v_refund_lifecycle.refund_request_id refund_request_id Refund request identifier selected from refund_request."
   },
   {
-    "id": "column.settlement.settlement_instruction.settlement_status",
+    "id": "column.analytics.v_refund_lifecycle.order_id",
     "type": "column",
-    "text": "column.settlement.settlement_instruction.settlement_status settlement_status "
+    "text": "column.analytics.v_refund_lifecycle.order_id order_id Order identifier selected from refund_request."
   },
   {
-    "id": "quality.table.settlement.settlement_instruction.Settlement_Amount_Non_Negative",
-    "type": "quality_check",
-    "text": "quality.table.settlement.settlement_instruction.Settlement_Amount_Non_Negative Settlement Amount Non Negative settlement_amount >= 0"
-  },
-  {
-    "id": "column.settlement.v_margin_settlement_summary.margin_call_id",
+    "id": "column.analytics.v_refund_lifecycle.requested_amount",
     "type": "column",
-    "text": "column.settlement.v_margin_settlement_summary.margin_call_id margin_call_id "
+    "text": "column.analytics.v_refund_lifecycle.requested_amount requested_amount Requested amount selected from refund_request."
   },
   {
-    "id": "column.settlement.v_margin_settlement_summary.margin_requirement",
+    "id": "column.analytics.v_refund_lifecycle.request_status",
     "type": "column",
-    "text": "column.settlement.v_margin_settlement_summary.margin_requirement margin_requirement "
+    "text": "column.analytics.v_refund_lifecycle.request_status request_status Request status selected from refund_request."
   },
   {
-    "id": "column.settlement.v_margin_settlement_summary.booking_id",
+    "id": "column.analytics.v_refund_lifecycle.decision_status",
     "type": "column",
-    "text": "column.settlement.v_margin_settlement_summary.booking_id booking_id "
+    "text": "column.analytics.v_refund_lifecycle.decision_status decision_status Decision status selected from refund_decision."
   },
   {
-    "id": "column.settlement.v_margin_settlement_summary.dispute_status",
+    "id": "column.analytics.v_refund_lifecycle.approved_amount",
     "type": "column",
-    "text": "column.settlement.v_margin_settlement_summary.dispute_status dispute_status "
+    "text": "column.analytics.v_refund_lifecycle.approved_amount approved_amount Approved amount selected from refund_decision."
   },
   {
-    "id": "column.settlement.v_margin_settlement_summary.settlement_status",
+    "id": "column.analytics.v_refund_lifecycle.refunded_amount",
     "type": "column",
-    "text": "column.settlement.v_margin_settlement_summary.settlement_status settlement_status "
+    "text": "column.analytics.v_refund_lifecycle.refunded_amount refunded_amount Refunded amount selected from payment_refund."
+  },
+  {
+    "id": "column.analytics.v_refund_lifecycle.payment_status",
+    "type": "column",
+    "text": "column.analytics.v_refund_lifecycle.payment_status payment_status Payment processor status selected from payment_refund."
   }
 ]

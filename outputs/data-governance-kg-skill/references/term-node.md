@@ -1,6 +1,6 @@
 # Term Node
 
-A `term` is a business word or glossary concept. Terms define meaning; they are not necessarily entities with lifecycle.
+A `term` is a glossary concept. Terms define meaning for business entities, business entity properties, and fields. Terms are not entities with lifecycle.
 
 ## When To Create
 
@@ -8,7 +8,7 @@ Create a term when a concept:
 
 - Needs a definition.
 - Has aliases or department-specific meanings.
-- Is used to interpret columns, APIs, dashboards, rules, or objects.
+- Is used to define a business entity, an entity property, a column, or a rule.
 - Might be confused with a similar concept.
 
 ## YAML Format
@@ -19,17 +19,20 @@ type: term
 name:
 description:
 definition:
+owner:
 aliases:
   - <alias>
+evidence:
+  - kind:
+    ref:
+verified:
+  status:
+  by:
+  at:
+  reason:
 
 related_nodes:
   - id: term.<related_term>
-    relation:
-    description:
-  - id: object.<related_object>
-    relation:
-    description:
-  - id: column.<schema>.<table>.<column>
     relation:
     description:
 ```
@@ -42,39 +45,50 @@ type: term
 name: Refund
 description: Business term for returning money to a customer after an order payment.
 definition: A refund is a full or partial reversal of a captured payment for an order.
+owner: Payments Glossary Steward
 aliases:
   - repayment
   - payment reversal
+evidence:
+  - kind: doc
+    ref: docs/payments_glossary.md
+verified:
+  status: true
+  by: payments_glossary_steward
+  at: "2026-06-14"
 
 related_nodes:
   - id: term.settlement
-    relation: related_to
+    relation: RELATED_TO
     description: Refund settlement is the financial completion of an approved refund.
-  - id: object.refund_request
-    relation: defines
-    description: Refund Request is the business object that applies the refund concept.
-  - id: column.orders.refund_request.refund_amount
-    relation: mapped_to
-    description: This column stores the refund amount.
-  - id: scenario.refund_settlement
-    relation: explains
-    description: This scenario defines how approved refunds are settled.
 ```
+
+## Glossary Mapping Guidance
+
+Prefer one-way explicit references from entity/property/field to term:
+
+```yaml
+business_entity.refund_request:
+  term: term.refund_request
+
+business_entity.refund_request.properties[].approval_status:
+  term: term.approval_status
+
+table.orders.refund_request.columns[].approval_status:
+  term: term.approval_status
+```
+
+Do not duplicate every entity/field mapping back inside the term. The graph builder can create queryable edges from the references.
 
 ## related_nodes Guidance
 
-The `description` is required because it tells the Agent what the relationship means in business terms. Use `relation` when it improves graph query or UI labels.
+Use `related_nodes` on a term only for term-to-term semantic relationships. The `description` is required because it tells the Agent what the relationship means.
 
 Recommended term relations:
 
 ```text
-defines
-qualifies
-explains
-specializes
-broader_than
-narrower_than
-mapped_to
+RELATED_TO
+EQUIVALENT_TO
 ```
 
 ## aliases

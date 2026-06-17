@@ -1,174 +1,118 @@
 {
   "upstream": {
-    "api.margin.get_margin_booking_candidates": [
-      "table.margin.margin_calculation"
+    "business_entity.payment_refund": [
+      "business_entity.refund_decision"
     ],
-    "api.margin.get_margin_booking_candidates.margin_call_id": [
-      "column.margin.margin_calculation.margin_call_id"
+    "business_entity.refund_decision": [
+      "business_entity.refund_request"
     ],
-    "api.margin.get_margin_booking_candidates.margin_requirement": [
-      "column.margin.margin_calculation.margin_requirement"
+    "table.payments.payment_refund": [
+      "table.support.refund_decision"
     ],
-    "api.margin.get_margin_settlement_summary": [
-      "view.settlement.v_margin_settlement_summary"
+    "view.analytics.v_refund_lifecycle": [
+      "table.payments.payment_refund",
+      "table.support.refund_decision",
+      "table.support.refund_request"
     ],
-    "dashboard.powerbi.margin_operations": [
-      "api.margin.get_margin_settlement_summary"
+    "column.payments.payment_refund.decision_id": [
+      "column.support.refund_decision.decision_id"
     ],
-    "api.margin.get_margin_settlement_summary.margin_call_id": [
-      "column.settlement.v_margin_settlement_summary.margin_call_id"
+    "column.payments.payment_refund.refunded_amount": [
+      "column.support.refund_decision.approved_amount"
     ],
-    "api.margin.get_margin_settlement_summary.dispute_status": [
-      "column.settlement.v_margin_settlement_summary.dispute_status"
+    "column.analytics.v_refund_lifecycle.refunded_amount": [
+      "column.payments.payment_refund.refunded_amount"
     ],
-    "api.margin.get_margin_settlement_summary.settlement_status": [
-      "column.settlement.v_margin_settlement_summary.settlement_status"
+    "column.analytics.v_refund_lifecycle.payment_status": [
+      "column.payments.payment_refund.payment_status"
     ],
-    "column.margin.margin_calculation.margin_requirement": [
-      "column.risk.mtm_valuation.mtm_value"
+    "column.support.refund_request.order_id": [
+      "column.sales.order_header.order_id"
     ],
-    "dashboard.powerbi.margin_operations.margin_call_id": [
-      "column.settlement.v_margin_settlement_summary.margin_call_id"
+    "table.support.refund_decision": [
+      "table.support.refund_request"
     ],
-    "dashboard.powerbi.margin_operations.dispute_status": [
-      "column.settlement.v_margin_settlement_summary.dispute_status"
+    "column.support.refund_decision.refund_request_id": [
+      "column.support.refund_request.refund_request_id"
     ],
-    "dashboard.powerbi.margin_operations.settlement_status": [
-      "column.settlement.v_margin_settlement_summary.settlement_status"
+    "column.support.refund_decision.approved_amount": [
+      "column.support.refund_request.requested_amount"
     ],
-    "object.mtm_valuation": [
-      "object.margin_call",
-      "scenario.mtm_valuation"
+    "column.analytics.v_refund_lifecycle.approved_amount": [
+      "column.support.refund_decision.approved_amount"
     ],
-    "pipeline.airflow.daily_mtm_valuation": [
-      "feedfile.s3.counterparty_mtm_feed"
+    "column.analytics.v_refund_lifecycle.decision_status": [
+      "column.support.refund_decision.decision_status"
     ],
-    "table.risk.mtm_valuation": [
-      "pipeline.airflow.daily_mtm_valuation"
+    "table.support.refund_request": [
+      "table.sales.order_header"
     ],
-    "pipeline.airflow.margin_calculation_job": [
-      "table.risk.mtm_valuation",
-      "table.collateral.collateral_balance"
+    "column.analytics.v_refund_lifecycle.order_id": [
+      "column.support.refund_request.order_id"
     ],
-    "table.margin.margin_calculation": [
-      "pipeline.airflow.margin_calculation_job"
+    "column.analytics.v_refund_lifecycle.requested_amount": [
+      "column.support.refund_request.requested_amount"
     ],
-    "object.margin_call": [
-      "scenario.booking",
-      "scenario.margin_calculation"
+    "column.analytics.v_refund_lifecycle.request_status": [
+      "column.support.refund_request.request_status"
     ],
-    "object.booking_order": [
-      "scenario.booking",
-      "scenario.settlement"
-    ],
-    "object.settlement_instruction": [
-      "scenario.settlement"
-    ],
-    "table.settlement.settlement_instruction": [
-      "table.booking.booking_order"
-    ],
-    "view.settlement.v_margin_settlement_summary": [
-      "table.margin.margin_calculation",
-      "table.booking.booking_order",
-      "table.settlement.settlement_instruction"
-    ],
-    "column.settlement.v_margin_settlement_summary.margin_call_id": [
-      "column.margin.margin_calculation.margin_call_id"
-    ],
-    "column.settlement.v_margin_settlement_summary.margin_requirement": [
-      "column.margin.margin_calculation.margin_requirement"
-    ],
-    "column.settlement.v_margin_settlement_summary.booking_id": [
-      "column.booking.booking_order.booking_id"
-    ],
-    "column.settlement.v_margin_settlement_summary.dispute_status": [
-      "column.booking.booking_order.dispute_status"
-    ],
-    "column.settlement.v_margin_settlement_summary.settlement_status": [
-      "column.settlement.settlement_instruction.settlement_status"
+    "column.analytics.v_refund_lifecycle.refund_request_id": [
+      "column.support.refund_request.refund_request_id"
     ]
   },
   "downstream": {
-    "table.margin.margin_calculation": [
-      "api.margin.get_margin_booking_candidates",
-      "view.settlement.v_margin_settlement_summary"
+    "business_entity.refund_decision": [
+      "business_entity.payment_refund"
     ],
-    "column.margin.margin_calculation.margin_call_id": [
-      "api.margin.get_margin_booking_candidates.margin_call_id",
-      "column.settlement.v_margin_settlement_summary.margin_call_id"
+    "business_entity.refund_request": [
+      "business_entity.refund_decision"
     ],
-    "column.margin.margin_calculation.margin_requirement": [
-      "api.margin.get_margin_booking_candidates.margin_requirement",
-      "column.settlement.v_margin_settlement_summary.margin_requirement"
+    "table.support.refund_decision": [
+      "table.payments.payment_refund",
+      "view.analytics.v_refund_lifecycle"
     ],
-    "view.settlement.v_margin_settlement_summary": [
-      "api.margin.get_margin_settlement_summary"
+    "table.payments.payment_refund": [
+      "view.analytics.v_refund_lifecycle"
     ],
-    "api.margin.get_margin_settlement_summary": [
-      "dashboard.powerbi.margin_operations"
+    "column.support.refund_decision.decision_id": [
+      "column.payments.payment_refund.decision_id"
     ],
-    "column.settlement.v_margin_settlement_summary.margin_call_id": [
-      "api.margin.get_margin_settlement_summary.margin_call_id",
-      "dashboard.powerbi.margin_operations.margin_call_id"
+    "column.support.refund_decision.approved_amount": [
+      "column.payments.payment_refund.refunded_amount",
+      "column.analytics.v_refund_lifecycle.approved_amount"
     ],
-    "column.settlement.v_margin_settlement_summary.dispute_status": [
-      "api.margin.get_margin_settlement_summary.dispute_status",
-      "dashboard.powerbi.margin_operations.dispute_status"
+    "column.payments.payment_refund.refunded_amount": [
+      "column.analytics.v_refund_lifecycle.refunded_amount"
     ],
-    "column.settlement.v_margin_settlement_summary.settlement_status": [
-      "api.margin.get_margin_settlement_summary.settlement_status",
-      "dashboard.powerbi.margin_operations.settlement_status"
+    "column.payments.payment_refund.payment_status": [
+      "column.analytics.v_refund_lifecycle.payment_status"
     ],
-    "column.risk.mtm_valuation.mtm_value": [
-      "column.margin.margin_calculation.margin_requirement"
+    "column.sales.order_header.order_id": [
+      "column.support.refund_request.order_id"
     ],
-    "object.margin_call": [
-      "object.mtm_valuation"
+    "table.support.refund_request": [
+      "table.support.refund_decision",
+      "view.analytics.v_refund_lifecycle"
     ],
-    "feedfile.s3.counterparty_mtm_feed": [
-      "pipeline.airflow.daily_mtm_valuation"
+    "column.support.refund_request.refund_request_id": [
+      "column.support.refund_decision.refund_request_id",
+      "column.analytics.v_refund_lifecycle.refund_request_id"
     ],
-    "pipeline.airflow.daily_mtm_valuation": [
-      "table.risk.mtm_valuation"
+    "column.support.refund_request.requested_amount": [
+      "column.support.refund_decision.approved_amount",
+      "column.analytics.v_refund_lifecycle.requested_amount"
     ],
-    "table.risk.mtm_valuation": [
-      "pipeline.airflow.margin_calculation_job"
+    "column.support.refund_decision.decision_status": [
+      "column.analytics.v_refund_lifecycle.decision_status"
     ],
-    "table.collateral.collateral_balance": [
-      "pipeline.airflow.margin_calculation_job"
+    "table.sales.order_header": [
+      "table.support.refund_request"
     ],
-    "pipeline.airflow.margin_calculation_job": [
-      "table.margin.margin_calculation"
+    "column.support.refund_request.order_id": [
+      "column.analytics.v_refund_lifecycle.order_id"
     ],
-    "scenario.booking": [
-      "object.margin_call",
-      "object.booking_order"
-    ],
-    "scenario.margin_calculation": [
-      "object.margin_call"
-    ],
-    "scenario.mtm_valuation": [
-      "object.mtm_valuation"
-    ],
-    "scenario.settlement": [
-      "object.booking_order",
-      "object.settlement_instruction"
-    ],
-    "table.booking.booking_order": [
-      "table.settlement.settlement_instruction",
-      "view.settlement.v_margin_settlement_summary"
-    ],
-    "table.settlement.settlement_instruction": [
-      "view.settlement.v_margin_settlement_summary"
-    ],
-    "column.booking.booking_order.booking_id": [
-      "column.settlement.v_margin_settlement_summary.booking_id"
-    ],
-    "column.booking.booking_order.dispute_status": [
-      "column.settlement.v_margin_settlement_summary.dispute_status"
-    ],
-    "column.settlement.settlement_instruction.settlement_status": [
-      "column.settlement.v_margin_settlement_summary.settlement_status"
+    "column.support.refund_request.request_status": [
+      "column.analytics.v_refund_lifecycle.request_status"
     ]
   }
 }

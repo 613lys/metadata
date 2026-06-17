@@ -1,0 +1,15 @@
+id: term.order_identifier
+type: term
+name: Order Identifier
+description: Stable identifier assigned to a customer order.
+definition: A unique business key used to identify and join records that refer to the same customer order.
+aliases:
+  - order id
+  - order number
+owner: Commerce Data Steward
+evidence:
+  - kind: data_dictionary
+    ref: evidence/commerce_data_dictionary.md#order_identifier
+verified:
+  status: false
+  reason: demo_yaml_generated_for_skill_example

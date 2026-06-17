@@ -1,51 +1,35 @@
 {
   "views": [
     {
-      "id": "overview",
-      "name": "Overview",
-      "description": "Parent scenario and its direct business context.",
+      "id": "semantic_overview",
+      "name": "Semantic Overview",
+      "description": "Business entities, glossary terms, and mapped physical assets.",
       "mode": "all",
-      "focus": "scenario.margin_booking_settlement",
+      "focus": "business_entity.customer_order",
       "pinned_nodes": [
-        "scenario.margin_booking_settlement",
-        "scenario.mtm_valuation",
-        "scenario.margin_calculation",
-        "scenario.booking",
-        "scenario.settlement"
+        "business_entity.customer_order",
+        "business_entity.payment_refund",
+        "business_entity.refund_decision",
+        "business_entity.refund_request",
+        "term.approval_status",
+        "term.order_identifier",
+        "term.payment_refund",
+        "term.refund_amount",
+        "term.refund_request"
       ]
     },
     {
-      "id": "lineage",
-      "name": "Lineage",
-      "description": "Operational data flow from feed to dashboard.",
+      "id": "physical_lineage",
+      "name": "Physical Lineage",
+      "description": "Direct table/view and column dependencies compiled from YAML lineage.",
       "mode": "lineage",
-      "focus": "scenario.margin_booking_settlement",
-      "pinned_nodes": []
-    },
-    {
-      "id": "mtm_data_mode",
-      "name": "MTM Data Mode",
-      "description": "Data assets that implement the MTM term.",
-      "mode": "data",
-      "focus": "term.mtm",
+      "focus": "table.payments.payment_refund",
       "pinned_nodes": [
-        "term.mtm",
-        "table.risk.mtm_valuation",
-        "column.risk.mtm_valuation.mtm_value"
-      ]
-    },
-    {
-      "id": "settlement_data_mode",
-      "name": "Settlement Data Mode",
-      "description": "Assets involved in settlement monitoring.",
-      "mode": "data",
-      "focus": "scenario.settlement",
-      "pinned_nodes": [
-        "scenario.settlement",
-        "table.booking.booking_order",
-        "table.settlement.settlement_instruction",
-        "api.margin.get_margin_settlement_summary",
-        "dashboard.powerbi.margin_operations"
+        "table.payments.payment_refund",
+        "table.sales.order_header",
+        "table.support.refund_decision",
+        "table.support.refund_request",
+        "view.analytics.v_refund_lifecycle"
       ]
     }
   ]

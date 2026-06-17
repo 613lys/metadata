@@ -1,0 +1,67 @@
+id: business_entity.refund_request
+type: business_entity
+name: Refund Request
+description: Customer request for a refund against an existing order.
+term: term.refund_request
+owner: Commerce Operations
+tags:
+  - domain.commerce
+  - lifecycle.refund
+properties:
+  - name: refund_request_id
+    description: Stable identifier for the refund request.
+    semantic_role: identifier
+    maps_to:
+      - column.support.refund_request.refund_request_id
+  - name: order_id
+    description: Customer order that the refund request belongs to.
+    semantic_role: identifier
+    term: term.order_identifier
+    maps_to:
+      - column.support.refund_request.order_id
+  - name: requested_amount
+    description: Amount requested by the customer.
+    semantic_role: measure
+    term: term.refund_amount
+    maps_to:
+      - column.support.refund_request.requested_amount
+    constraints:
+      - type: range
+        severity: high
+        description: Requested amount should be greater than zero.
+        expression: requested_amount > 0
+  - name: request_status
+    description: Current lifecycle status of the request.
+    semantic_role: status
+    term: term.approval_status
+    maps_to:
+      - column.support.refund_request.request_status
+    constraints:
+      - type: accepted_values
+        severity: high
+        description: Refund request status must use the controlled status set.
+        expression: request_status in ('submitted', 'approved', 'rejected', 'cancelled')
+mapped_assets:
+  - id: table.support.refund_request
+    relation: IMPLEMENTED_BY
+    description: Refund request table stores customer-submitted refund cases.
+related_nodes:
+  - id: business_entity.customer_order
+    relation: REFERENCES
+    description: A refund request references exactly one customer order.
+    constraints:
+      - type: relationship_required
+        severity: critical
+        description: A refund request must reference an existing customer order.
+        expression: refund_request.order_id exists in customer_order.order_id
+constraints:
+  - type: relationship_required
+    severity: critical
+    description: A refund request must reference an existing customer order.
+    expression: refund_request.order_id exists in customer_order.order_id
+evidence:
+  - kind: policy
+    ref: evidence/refund_policy.md
+verified:
+  status: false
+  reason: generated_from_skill_demo

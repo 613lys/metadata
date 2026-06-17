@@ -1,86 +1,95 @@
 const graph = window.GRAPH_DATA || { nodes: [], edges: [] };
 const catalog = window.CATALOG_DATA || {};
 
-const pageEl = document.getElementById("page");
-const searchEl = document.getElementById("search");
-const filtersEl = document.getElementById("typeFilters");
-const assetListEl = document.getElementById("assetList");
-const statsEl = document.getElementById("stats");
-const profileBodyEl = document.getElementById("profileBody");
-const titleEl = document.getElementById("detailTitle");
-const badgeEl = document.getElementById("detailBadge");
-const descEl = document.getElementById("detailDescription");
+const els = {
+  stats: document.getElementById("stats"),
+  catalogTab: document.getElementById("catalogTab"),
+  graphTab: document.getElementById("graphTab"),
+  catalogPage: document.getElementById("catalogPage"),
+  graphPage: document.getElementById("graphPage"),
+
+  catalogSearch: document.getElementById("catalogSearchInput"),
+  catalogNodeTypes: document.getElementById("catalogNodeTypeFilters"),
+  catalogEdgeTypes: document.getElementById("catalogEdgeTypeFilters"),
+  catalogTags: document.getElementById("catalogTagFilters"),
+  catalogReset: document.getElementById("catalogResetButton"),
+  catalogSummary: document.getElementById("catalogResultSummary"),
+  nodeResults: document.getElementById("nodeResults"),
+  edgeResults: document.getElementById("edgeResults"),
+  catalogDetailBadge: document.getElementById("catalogDetailBadge"),
+  catalogDetailTitle: document.getElementById("catalogDetailTitle"),
+  catalogDetailDescription: document.getElementById("catalogDetailDescription"),
+  catalogDetailBody: document.getElementById("catalogDetailBody"),
+  openGraph: document.getElementById("openGraphButton"),
+
+  backToCatalog: document.getElementById("backToCatalogButton"),
+  graphFocusCard: document.getElementById("graphFocusCard"),
+  graphNodeTypes: document.getElementById("graphNodeTypeFilters"),
+  graphEdgeTypes: document.getElementById("graphEdgeTypeFilters"),
+  graphTags: document.getElementById("graphTagFilters"),
+  graphReset: document.getElementById("graphResetButton"),
+  depth: document.getElementById("depthInput"),
+  depthValue: document.getElementById("depthValue"),
+  focusType: document.getElementById("focusType"),
+  focusTitle: document.getElementById("focusTitle"),
+  focusDescription: document.getElementById("focusDescription"),
+  fit: document.getElementById("fitButton"),
+  expandSelected: document.getElementById("expandSelectedButton"),
+  viewport: document.getElementById("graphViewport"),
+  board: document.getElementById("graphBoard"),
+  edgeLayer: document.getElementById("edgeLayer"),
+  fieldEdgeLayer: document.getElementById("fieldEdgeLayer"),
+  graphDetailBadge: document.getElementById("graphDetailBadge"),
+  graphDetailTitle: document.getElementById("graphDetailTitle"),
+  graphDetailDescription: document.getElementById("graphDetailDescription"),
+  graphDetailBody: document.getElementById("graphDetailBody"),
+};
 
 const nodeMap = new Map(graph.nodes.map(node => [node.id, node]));
-const childTypes = new Set(["column", "api_field", "feedfile_field", "dashboard_field", "quality_check"]);
-const datasetTypes = new Set(["table", "view"]);
-const dataAssetTypes = new Set(["feedfile", "pipeline", "table", "view", "column", "api", "dashboard"]);
-const semanticTypes = new Set(["scenario", "term", "object"]);
-const lineageTypes = new Set(["lineage", "feeds", "reads", "writes", "field_lineage", "produces", "consumes", "serves", "derived_from"]);
+const edgeMap = new Map(graph.edges.map(edge => [edge.id, edge]));
+const childTypes = new Set(["column", "business_entity_property"]);
+const topLevelNodes = graph.nodes.filter(node => !childTypes.has(node.type));
 
-let page = "catalog";
-let selected = "scenario.margin_booking_settlement";
-let selectedEdge = null;
-let selectedLogic = null;
-let expanded = new Set();
-let activeTypes = new Set(graph.nodes.filter(node => !childTypes.has(node.type)).map(node => node.type));
-let browseTypes = new Set(graph.nodes.map(node => node.type));
-let currentBusinessEdges = [];
-
-const color = {
-  scenario: "#2563eb",
+const typeColors = {
+  business_entity: "#7c3aed",
   term: "#0891b2",
-  object: "#9333ea",
-  business_logic: "#334155",
-  feedfile: "#475569",
-  pipeline: "#7c3aed",
   table: "#159947",
   view: "#22a35a",
   column: "#65a30d",
-  api: "#f97316",
-  dashboard: "#dc2626",
-  quality_check: "#b7791f",
-  api_field: "#fb923c",
-  feedfile_field: "#64748b",
-  dashboard_field: "#dc2626",
+  business_entity_property: "#9333ea",
 };
 
-const typeLabel = {
-  scenario: "Scenario",
+const typeLabels = {
+  business_entity: "Business Entity",
+  business_entity_property: "Property",
   term: "Term",
-  object: "Object",
-  business_logic: "Scenario Logic",
-  feedfile: "Feed File",
-  pipeline: "Pipeline",
   table: "Table",
   view: "View",
   column: "Column",
-  api: "API",
-  dashboard: "Dashboard",
-  quality_check: "Quality",
-  api_field: "API Field",
-  feedfile_field: "Feed Field",
-  dashboard_field: "Dashboard Field",
 };
 
-const lanes = [
-  { title: "Source", types: ["feedfile"] },
-  { title: "Pipeline", types: ["pipeline"] },
-  { title: "Dataset", types: ["table", "view", "column"] },
-  { title: "Serving", types: ["api"] },
-  { title: "Consumer", types: ["dashboard"] },
-];
+const catalogState = {
+  query: "",
+  nodeTypes: new Set(nodeTypes()),
+  edgeTypes: new Set(edgeTypes()),
+  tags: new Set(allTags()),
+  selectedKind: "node",
+  selectedId: chooseInitialNode(),
+};
 
-const catalogStages = [
-  { key: "feedfile", title: "Feed File", subtitle: "External files" },
-  { key: "pipeline", title: "Pipeline", subtitle: "Jobs and loads" },
-  { key: "table", title: "Table", subtitle: "Stored datasets" },
-  { key: "view", title: "View", subtitle: "Modeled queries" },
-  { key: "api", title: "API", subtitle: "Query services" },
-  { key: "dashboard", title: "Dashboard", subtitle: "Consumption" },
-];
+const graphState = {
+  focusId: catalogState.selectedId,
+  selectedEdgeId: null,
+  selectedFieldId: null,
+  maxDepth: 1,
+  nodeTypes: new Set(nodeTypes()),
+  edgeTypes: new Set(edgeTypes()),
+  tags: new Set(allTags()),
+  expanded: new Set(),
+  visible: { nodes: [], edges: [], childEdges: [], depthById: new Map(), positions: new Map() },
+};
 
-function nodeById(id) {
+function node(id) {
   return nodeMap.get(id);
 }
 
@@ -88,2193 +97,1210 @@ function raw(id) {
   return catalog[id] || {};
 }
 
-function parentOf(id) {
-  const node = nodeById(id);
-  if (node?.properties?.parent) return node.properties.parent;
+function graphEdge(id) {
+  return edgeMap.get(id);
+}
+
+function chooseInitialNode() {
+  return (
+    topLevelNodes.find(item => item.type === "business_entity")?.id ||
+    topLevelNodes[0]?.id ||
+    graph.nodes[0]?.id
+  );
+}
+
+function nodeTypes() {
+  return [...new Set(topLevelNodes.map(item => item.type))].sort();
+}
+
+function edgeTypes() {
+  return [...new Set(graph.edges.map(edge => normalizeType(edge.type)))].sort();
+}
+
+function allTags() {
+  return [...new Set(topLevelNodes.flatMap(item => tagsFor(item.id)))].sort();
+}
+
+function tagFilterIsActive(selectedTags) {
+  const tags = allTags();
+  return selectedTags.size > 0 && selectedTags.size < tags.length;
+}
+
+function normalizeType(type) {
+  const aliases = {
+    reads: "READS_FROM",
+    derived_from: "DERIVES_FROM",
+    field_lineage: "DERIVES_FROM",
+    maps_to_property: "MAPS_TO",
+    uses_term: "HAS_TERM",
+    related_to: "RELATED_TO",
+    contains: "CONTAINS",
+  };
+  return aliases[String(type || "RELATED_TO").toLowerCase()] || String(type || "RELATED_TO").toUpperCase();
+}
+
+function typeName(type) {
+  return typeLabels[type] || titleCase(type);
+}
+
+function titleCase(value) {
+  return String(value || "node")
+    .replace(/_/g, " ")
+    .replace(/\b\w/g, char => char.toUpperCase());
+}
+
+function colorFor(type) {
+  return typeColors[type] || "#64748b";
+}
+
+function label(id) {
+  return node(id)?.label || raw(id).name || id;
+}
+
+function nodeType(id) {
+  return node(id)?.type || raw(id).type || "node";
+}
+
+function description(id) {
+  return node(id)?.properties?.description || raw(id).description || "";
+}
+
+function tagsFor(id) {
   const data = raw(id);
-  if (data.parent) return data.parent;
+  const props = node(id)?.properties || {};
+  return [...new Set([...(data.tags || []), ...(props.tags || [])].filter(Boolean))];
+}
+
+function parentOf(id) {
+  const n = node(id);
+  if (n?.properties?.parent) return n.properties.parent;
+  if (raw(id).parent) return raw(id).parent;
   if (id?.startsWith("column.")) {
     const parts = id.split(".");
     if (parts.length >= 4) return `table.${parts[1]}.${parts[2]}`;
   }
-  if (id?.includes(".request_fields.") || id?.includes(".response_fields.") || id?.includes(".returns.")) {
-    return id.split(".").slice(0, -1).join(".");
-  }
+  if (id?.match(/^business_entity\.[^.]+\.[^.]+$/)) return id.split(".").slice(0, 2).join(".");
   return id;
 }
 
-function labelOf(id) {
-  const node = nodeById(id);
-  return node?.label || raw(id).name || id;
+function isChildNode(idOrNode) {
+  const n = typeof idOrNode === "string" ? node(idOrNode) : idOrNode;
+  return Boolean(n && childTypes.has(n.type));
 }
 
-function typeOf(id) {
-  return nodeById(id)?.type || raw(id).type || "node";
+function normalizedEdge(edge, sourceParent = parentOf(edge.source), targetParent = parentOf(edge.target)) {
+  return {
+    id: edge.id || `${edge.source}|${edge.type}|${edge.target}`,
+    type: normalizeType(edge.type),
+    source: sourceParent,
+    target: targetParent,
+    sourceOriginal: edge.source,
+    targetOriginal: edge.target,
+    description: edge.properties?.description || "",
+    sourceField: edge.properties?.source_field || "",
+    constraints: edge.properties?.constraints || [],
+    isFieldLevel: sourceParent !== edge.source || targetParent !== edge.target,
+    raw: edge,
+  };
 }
 
-function descOf(id) {
-  const node = nodeById(id);
-  return node?.properties?.description || raw(id).description || "";
+function parentEdges() {
+  return dedupeEdges(graph.edges
+    .filter(edge => !isChildNode(edge.source) && !isChildNode(edge.target))
+    .map(edge => normalizedEdge(edge))
+    .filter(edge => edge.source !== edge.target && node(edge.source) && node(edge.target)));
 }
 
-function isVisibleByQuery(node) {
-  const q = searchEl.value.trim().toLowerCase();
-  if (!q) return true;
-  return `${node.id} ${node.label} ${node.type} ${node.properties?.description || ""}`.toLowerCase().includes(q);
+function childEdges() {
+  return dedupeEdges(graph.edges
+    .filter(edge => isChildNode(edge.source) || isChildNode(edge.target))
+    .map(edge => normalizedEdge(edge))
+    .filter(edge => edge.source !== edge.target && node(edge.source) && node(edge.target)));
 }
 
-function visibleCatalogNodes() {
-  return graph.nodes
-    .filter(node => !childTypes.has(node.type))
-    .filter(node => activeTypes.has(node.type))
-    .filter(isVisibleByQuery)
-    .sort((a, b) => `${a.type}:${a.label}`.localeCompare(`${b.type}:${b.label}`));
-}
-
-function setPage(next, nextSelected = selected) {
-  page = next;
-  selected = nextSelected;
-  selectedEdge = null;
-  selectedLogic = null;
-  render();
-}
-
-function selectNode(id, nextPage = page) {
-  selected = id;
-  selectedEdge = null;
-  selectedLogic = null;
-  page = nextPage;
-  render();
-}
-
-function selectEdge(edge) {
-  selectedEdge = edge;
-  selectedLogic = null;
-  selected = edge.target;
-  render();
-}
-
-function render() {
-  statsEl.textContent = `${graph.nodes.filter(node => !childTypes.has(node.type)).length} catalog nodes · ${graph.edges.length} relationships`;
-  renderNav();
-  renderFilters();
-  renderSidebarResults();
-  renderPage();
-  renderProfile();
-  wireClicks(pageEl);
-  wireClicks(profileBodyEl);
-}
-
-function renderNav() {
-  document.querySelectorAll(".primary-nav button").forEach(button => {
-    button.classList.toggle("active", button.dataset.page === page);
-    button.onclick = () => {
-      page = button.dataset.page;
-      render();
-    };
-  });
-}
-
-function renderFilters() {
-  filtersEl.innerHTML = "";
-  [...new Set(graph.nodes.filter(node => !childTypes.has(node.type)).map(node => node.type))].sort().forEach(type => {
-    const button = document.createElement("button");
-    button.textContent = typeLabel[type] || type;
-    button.className = activeTypes.has(type) ? "active" : "";
-    button.onclick = () => {
-      activeTypes.has(type) ? activeTypes.delete(type) : activeTypes.add(type);
-      render();
-    };
-    filtersEl.appendChild(button);
-  });
-}
-
-function renderSidebarResults() {
-  const items = visibleCatalogNodes();
-  assetListEl.innerHTML = items.map(node => `
-    <div class="asset-item ${node.id === selected ? "selected" : ""}" data-id="${escapeAttr(node.id)}">
-      <div class="asset-icon" style="background:${color[node.type] || "#64748b"}">${escapeHtml((typeLabel[node.type] || node.type).slice(0, 1))}</div>
-      <div>
-        <div class="asset-name">${escapeHtml(node.label)}</div>
-        <div class="asset-meta">${escapeHtml(typeLabel[node.type] || node.type)} · ${escapeHtml(node.id)}</div>
-      </div>
-    </div>
-  `).join("");
-  wireClicks(assetListEl);
-}
-
-function renderPage() {
-  if (page === "browse") return renderBrowsePage();
-  if (page === "scenario") return renderScenarioPage();
-  if (page === "fields") return renderFieldsPage();
-  if (page === "asset") return renderAssetPage();
-  if (page === "lineage") return renderLineagePage();
-  if (page === "ontology") return renderOntologyPage();
-  if (page === "quality") return renderQualityPage();
-  return renderCatalogPage();
-}
-
-function renderBrowsePage() {
-  const nodes = visibleBrowseNodes();
-  const typeCounts = countByType(graph.nodes);
-  const topTypes = Object.entries(typeCounts).sort((a, b) => b[1] - a[1]).slice(0, 8);
-
-  pageEl.innerHTML = `
-    ${pageHeader("Browse", "Search and filter every node in the governance graph, including assets, fields, terms, objects, scenarios, quality checks, and generated dashboard fields.", [
-      ["Open Catalog", "catalog", selected],
-    ])}
-    <div class="metrics-grid">
-      ${metric("All Nodes", graph.nodes.length)}
-      ${metric("Visible", nodes.length)}
-      ${metric("Types", Object.keys(typeCounts).length)}
-      ${metric("Relationships", graph.edges.length)}
-    </div>
-    <section class="section">
-      <h3>Search</h3>
-      <div class="browse-controls">
-        <input id="browseSearch" type="search" value="${escapeAttr(searchEl.value)}" placeholder="Search by name, id, type, description..." />
-        <button id="browseClear">Clear</button>
-      </div>
-      <div class="browse-type-grid">
-        ${Object.entries(typeCounts).sort((a, b) => a[0].localeCompare(b[0])).map(([type, count]) => `
-          <button class="${browseTypes.has(type) ? "active" : ""}" data-browse-type="${escapeAttr(type)}">
-            ${escapeHtml(typeLabel[type] || type)} <span>${count}</span>
-          </button>
-        `).join("")}
-      </div>
-    </section>
-    <section class="section">
-      <h3>Node Results</h3>
-      <div class="browse-summary">
-        ${topTypes.map(([type, count]) => `<span>${escapeHtml(typeLabel[type] || type)} ${count}</span>`).join("")}
-      </div>
-      <div class="browse-results">
-        ${nodes.map(renderBrowseNode).join("") || empty("No nodes match the current search and type filters.")}
-      </div>
-    </section>
-  `;
-  wireBrowseControls();
-}
-
-function visibleBrowseNodes() {
-  return graph.nodes
-    .filter(node => browseTypes.has(node.type))
-    .filter(isVisibleByQuery)
-    .sort((a, b) => `${a.type}:${a.label}:${a.id}`.localeCompare(`${b.type}:${b.label}:${b.id}`));
-}
-
-function renderBrowseNode(node) {
-  const relations = relatedFor(node.id).slice(0, 3);
-  return `
-    <div class="browse-node ${node.id === selected ? "selected" : ""}" data-id="${escapeAttr(node.id)}">
-      <div class="browse-node-main">
-        <div class="node-top">
-          <span class="node-dot" style="background:${color[node.type] || "#64748b"}"></span>
-          <strong>${escapeHtml(node.label)}</strong>
-          ${badge(node.type)}
-        </div>
-        <p>${escapeHtml(node.properties?.description || raw(node.id).description || "No description.")}</p>
-        <small>${escapeHtml(node.id)}</small>
-      </div>
-      <div class="browse-node-side">
-        ${parentOf(node.id) !== node.id ? `<span>Parent: ${escapeHtml(labelOf(parentOf(node.id)))}</span>` : ""}
-        <span>${relations.length} related shown</span>
-        ${relations.map(rel => `<em>${escapeHtml(rel.type)} ${escapeHtml(rel.otherLabel)}</em>`).join("")}
-      </div>
-    </div>
-  `;
-}
-
-function wireBrowseControls() {
-  const input = document.getElementById("browseSearch");
-  if (input) {
-    input.oninput = event => {
-      searchEl.value = event.target.value;
-      render();
-    };
-  }
-  const clear = document.getElementById("browseClear");
-  if (clear) {
-    clear.onclick = () => {
-      searchEl.value = "";
-      browseTypes = new Set(graph.nodes.map(node => node.type));
-      render();
-    };
-  }
-  pageEl.querySelectorAll("[data-browse-type]").forEach(button => {
-    button.onclick = event => {
-      const type = button.dataset.browseType;
-      browseTypes.has(type) ? browseTypes.delete(type) : browseTypes.add(type);
-      render();
-      event.stopPropagation();
-    };
-  });
-}
-
-function renderCatalogPage() {
-  const mainScenario = nodeById("scenario.margin_booking_settlement") || graph.nodes.find(node => node.type === "scenario");
-  const counts = countByType(graph.nodes.filter(node => !childTypes.has(node.type)));
-  const assets = graph.nodes.filter(node => dataAssetTypes.has(node.type) && !childTypes.has(node.type));
-  const directFlowEdges = graph.edges.filter(edge => lineageTypes.has(edge.type) && dataAssetTypes.has(typeOf(parentOf(edge.source))) && dataAssetTypes.has(typeOf(parentOf(edge.target))));
-
-  pageEl.innerHTML = `
-    ${pageHeader("Catalog", "Scenario-level data flow across feed files, pipelines, datasets, APIs, and dashboards.", [
-      ["Open Main Scenario", "scenario", mainScenario?.id],
-      ["Open Profile", "asset", mainScenario?.id],
-    ])}
-    <div class="metrics-grid">
-      ${metric("Scenarios", counts.scenario || 0)}
-      ${metric("Data Assets", assets.length)}
-      ${metric("Direct Flow Edges", directFlowEdges.length)}
-      ${metric("Quality Checks", countQualityChecks())}
-    </div>
-    <section class="section">
-      <h3>Clustered Overview</h3>
-      <div class="cluster-graph-shell">
-        <svg id="overviewEdgeLayer" aria-hidden="true"></svg>
-        <div id="overviewGraphBoard" class="cluster-graph-board" role="img" aria-label="Catalog clustered knowledge graph"></div>
-      </div>
-    </section>
-  `;
-  renderCatalogGraph(mainScenario?.id);
-}
-
-function renderScenarioPage() {
-  const focus = nodeById(selected) || nodeById("scenario.margin_booking_settlement") || graph.nodes.find(node => node.type === "scenario");
-  const mainScenario = raw(focus?.id)?.child_scenarios?.length
-    ? focus
-    : nodeById(raw(focus?.id)?.parent_scenario) || nodeById("scenario.margin_booking_settlement") || focus;
-  selected = focus?.id || selected;
-  const model = businessContextModel(mainScenario?.id || selected);
-
-  pageEl.innerHTML = `
-    ${pageHeader("Business Context", "Scenario-level business logic, objects, terms, implementation mappings, and quality safeguards.", [
-      ["Open Asset Profile", "asset", selected],
-    ])}
-    <div class="metrics-grid">
-      ${metric("Sub-scenarios", model.scenarioPanels.length)}
-      ${metric("Business Logic", model.logicCount)}
-      ${metric("Objects", model.objectCount)}
-      ${metric("Quality Checks", model.qualityCount)}
-    </div>
-    <section class="section">
-      <h3>Semantic Map</h3>
-      <div class="cluster-graph-shell business-context-shell">
-        <svg id="semanticEdgeLayer" aria-hidden="true"></svg>
-        <div id="semanticGraphBoard" class="cluster-graph-board" role="img" aria-label="Business context semantic map"></div>
-      </div>
-    </section>
-  `;
-  renderBusinessContextMap(model);
-}
-
-function renderAssetPage() {
-  const node = nodeById(selected) || graph.nodes[0];
-  selected = node.id;
-  const data = raw(selected);
-  const relations = directRelationsFor(selected);
-  const grouped = groupRelationsByType(relations);
-
-  pageEl.innerHTML = `
-    ${pageHeader("Asset Profile", "One-hop relationship graph for the selected node.", [
-      ["Browse All Nodes", "browse", selected],
-      ["Show Semantics", "scenario", selected],
-    ])}
-    <div class="grid-2">
-      <div class="profile-card">
-        <h3>Overview</h3>
-        ${overviewKv(node, data)}
-      </div>
-      <div class="profile-card">
-        <h3>Direct Connections</h3>
-        ${kv("Connected Nodes", relations.length)}
-        ${kv("Relationship Types", Object.keys(grouped).length)}
-        ${kv("Incoming", relations.filter(rel => rel.direction === "in").length)}
-        ${kv("Outgoing", relations.filter(rel => rel.direction === "out").length)}
-      </div>
-    </div>
-    <section class="section">
-      <h3>One-Hop Relationship Graph</h3>
-      <div class="one-hop-shell">
-        <svg id="oneHopEdgeLayer" aria-hidden="true"></svg>
-        <div id="oneHopBoard" class="one-hop-board" role="img" aria-label="One-hop relationship graph"></div>
-      </div>
-    </section>
-    <section class="section">
-      <h3>Selected Edge</h3>
-      ${selectedEdge ? edgeInfo(selectedEdge) : empty("Click a relationship edge label to inspect source, target, and description.")}
-    </section>
-  `;
-  renderOneHopGraph(node, relations);
-}
-
-function renderLineagePage() {
-  const focus = nodeById(selected) || nodeById("scenario.margin_booking_settlement");
-  const nodes = lineageViewNodes(focus.id);
-  const edges = visibleGraphEdges(nodes, edge => lineageTypes.has(edge.type));
-  const actions = datasetTypes.has(focus.type)
-    ? [["Expand Selected Dataset", "toggle-expand", selected], ["Open Asset Profile", "asset", selected]]
-    : [["Open Scenario", "scenario", selected], ["Open Asset Profile", "asset", nodes[0]?.id || selected]];
-
-  pageEl.innerHTML = `
-    ${pageHeader("Lineage Explorer", "Asset-level lineage is shown first. Columns stay hidden until a dataset is expanded, like OpenMetadata-style exploration.", actions)}
-    <section class="graph-shell">
-      <svg id="edgeLayer" aria-hidden="true"></svg>
-      <div id="graphBoard" class="graph-board" role="img" aria-label="Lineage graph"></div>
-    </section>
-    <section class="section" style="margin-top:16px">
-      <h3>Edge Details</h3>
-      ${selectedEdge ? edgeInfo(selectedEdge) : empty("Click a lineage edge label to inspect source, target, and description.")}
-    </section>
-  `;
-  renderGraph(nodes, edges);
-}
-
-function renderOntologyPage() {
-  return renderScenarioPage();
-}
-
-function renderQualityPage() {
-  const rows = Object.values(catalog).flatMap(item => {
-    const checks = item.quality_checks || [];
-    return checks.map(check => ({ item, check }));
-  });
-
-  pageEl.innerHTML = `
-    ${pageHeader("Quality", "Quality checks live on the node they protect: feed freshness, pipeline success, field validity, or cross-field rules.", [
-      ["Open Catalog", "catalog", selected],
-    ])}
-    <section class="section">
-      <h3>Checks</h3>
-      ${rows.map(({ item, check }) => `
-        <div class="quality-row" data-id="${escapeAttr(item.id)}">
-          <strong>${escapeHtml(check.name || check.check_type || "Quality check")}</strong>
-          <small>${escapeHtml(typeLabel[item.type] || item.type)} · ${escapeHtml(item.name || item.id)}<br>${escapeHtml(check.expectation || check.check_type || "")}</small>
-        </div>
-      `).join("") || empty("No quality checks.")}
-    </section>
-  `;
-}
-
-function renderFieldsPage() {
-  const model = fieldAssetModel();
-  const mappedFields = model.fields.filter(field => fieldSemanticLinks(field.id).length);
-  const qualityFields = model.fields.filter(field => fieldQualityLinks(field.id).length);
-  const qualityAssets = model.assets.filter(asset => assetQualityLinks(asset.id).length);
-
-  pageEl.innerHTML = `
-    ${pageHeader("Field Map", "Field-level meaning and lineage across all assets. Each asset contains its fields like an ER diagram.", [
-      ["Open Catalog", "catalog", selected],
-    ])}
-    <div class="metrics-grid">
-      ${metric("Assets With Fields", model.assets.length)}
-      ${metric("Fields", model.fields.length)}
-      ${metric("Field Lineage Edges", model.edges.length)}
-      ${metric("Quality Coverage", `${qualityAssets.length} assets / ${qualityFields.length} fields`)}
-    </div>
-    <section class="section">
-      <h3>Field-Level ER / Lineage Map</h3>
-      <div class="field-er-shell">
-        <svg id="fieldEdgeLayer" aria-hidden="true"></svg>
-        <div id="fieldErBoard" class="field-er-board" role="img" aria-label="Field-level ER and lineage map"></div>
-      </div>
-    </section>
-  `;
-  renderFieldErMap(model);
-}
-
-function fieldAssetModel() {
-  const fieldTypes = new Set(["column", "api_field", "feedfile_field", "dashboard_field"]);
-  const assetOrder = ["feedfile", "table", "view", "api", "dashboard"];
-  const fields = graph.nodes
-    .filter(node => fieldTypes.has(node.type))
-    .sort((a, b) => `${assetOrder.indexOf(typeOf(parentOf(a.id)))}:${labelOf(parentOf(a.id))}:${a.label}`.localeCompare(`${assetOrder.indexOf(typeOf(parentOf(b.id)))}:${labelOf(parentOf(b.id))}:${b.label}`));
-  const fieldIds = new Set(fields.map(field => field.id));
-  const assetIds = new Set(fields.map(field => parentOf(field.id)));
-  const assets = [...assetIds]
-    .map(nodeById)
-    .filter(Boolean)
-    .sort((a, b) => {
-      const laneA = assetOrder.indexOf(a.type);
-      const laneB = assetOrder.indexOf(b.type);
-      return `${laneA < 0 ? 99 : laneA}:${a.label}`.localeCompare(`${laneB < 0 ? 99 : laneB}:${b.label}`);
-    });
-  const edges = graph.edges
-    .filter(edge => fieldIds.has(edge.source) && fieldIds.has(edge.target))
-    .filter(edge => ["field_lineage", "lineage", "derived_from", "maps_to_property"].includes(edge.type))
-    .map(edge => ({
-      id: edge.id || `${edge.source}|${edge.type}|${edge.target}`,
-      source: edge.source,
-      target: edge.target,
-      sourceOriginal: edge.source,
-      targetOriginal: edge.target,
-      type: edge.type,
-      descriptions: edge.properties?.description ? [edge.properties.description] : [],
-    }));
-  return { assets, fields, edges, assetOrder };
-}
-
-function dedupeFieldLinks(rows) {
+function dedupeEdges(edges) {
   const seen = new Set();
-  return rows.filter(row => {
-    const key = `${row.id}|${row.relation}|${row.direction || ""}`;
+  return edges.filter(edge => {
+    const key = `${edge.source}|${edge.target}|${edge.type}|${edge.sourceOriginal}|${edge.targetOriginal}`;
     if (seen.has(key)) return false;
     seen.add(key);
     return true;
   });
 }
 
-function fieldSemanticLinks(fieldId) {
-  const rows = [];
-  graph.edges.forEach(edge => {
-    const touchesSource = edge.source === fieldId;
-    const touchesTarget = edge.target === fieldId;
-    if (!touchesSource && !touchesTarget) return;
-    const otherId = touchesSource ? edge.target : edge.source;
-    const other = nodeById(otherId);
-    if (!other || !["term", "object", "scenario"].includes(other.type)) return;
-    rows.push({ id: other.id, label: other.label, type: other.type, relation: edge.type, description: edge.properties?.description || "" });
-  });
-  return dedupeFieldLinks(rows);
+function searchTextForNode(id) {
+  const data = raw(id);
+  const n = node(id);
+  return [
+    id,
+    n?.label,
+    n?.type,
+    n?.properties?.description,
+    data.name,
+    data.description,
+    data.definition,
+    data.owner,
+    ...(data.aliases || []),
+    ...tagsFor(id),
+    ...(data.columns || []).flatMap(col => [col.name, col.description, col.term, col.data_type]),
+    ...(data.properties || []).flatMap(prop => [prop.name, prop.description, prop.term, prop.semantic_role]),
+  ].filter(Boolean).join(" ").toLowerCase();
 }
 
-function fieldLineageLinks(fieldId) {
-  const rows = [];
-  graph.edges.forEach(edge => {
-    const touchesSource = edge.source === fieldId;
-    const touchesTarget = edge.target === fieldId;
-    if (!touchesSource && !touchesTarget) return;
-    const otherId = touchesSource ? edge.target : edge.source;
-    if (!["column", "api_field", "feedfile_field", "dashboard_field"].includes(typeOf(otherId))) return;
-    if (!["field_lineage", "lineage", "derived_from", "maps_to_property"].includes(edge.type)) return;
-    rows.push({ id: otherId, label: labelOf(otherId), type: typeOf(otherId), relation: edge.type, direction: touchesSource ? "to" : "from", description: edge.properties?.description || "" });
-  });
-  return dedupeFieldLinks(rows);
+function searchTextForEdge(edge) {
+  const normalized = normalizedEdge(edge);
+  return [
+    edge.id,
+    normalized.type,
+    normalized.description,
+    normalized.sourceOriginal,
+    normalized.targetOriginal,
+    label(normalized.source),
+    label(normalized.target),
+    nodeType(normalized.source),
+    nodeType(normalized.target),
+    ...tagsFor(normalized.source),
+    ...tagsFor(normalized.target),
+  ].filter(Boolean).join(" ").toLowerCase();
 }
 
-function fieldQualityLinks(fieldId) {
-  const rows = [];
-  graph.edges.forEach(edge => {
-    const touchesSource = edge.source === fieldId;
-    const touchesTarget = edge.target === fieldId;
-    if (!touchesSource && !touchesTarget) return;
-    const otherId = touchesSource ? edge.target : edge.source;
-    if (typeOf(otherId) !== "quality_check" && edge.type !== "checks") return;
-    rows.push({ id: otherId, label: labelOf(otherId), type: typeOf(otherId), relation: edge.type, description: edge.properties?.description || "" });
-  });
-  return dedupeFieldLinks(rows);
+function edgePassesCatalogFilters(edge) {
+  const normalized = normalizedEdge(edge);
+  if (catalogState.edgeTypes.size && !catalogState.edgeTypes.has(normalized.type)) return false;
+  const sourceType = nodeType(normalized.source);
+  const targetType = nodeType(normalized.target);
+  if (!catalogState.nodeTypes.has(sourceType) && !catalogState.nodeTypes.has(targetType)) return false;
+  if (tagFilterIsActive(catalogState.tags)) {
+    const edgeTags = [...tagsFor(normalized.source), ...tagsFor(normalized.target)];
+    if (![...catalogState.tags].some(tag => edgeTags.includes(tag))) return false;
+  }
+  if (catalogState.query && !searchTextForEdge(edge).includes(catalogState.query)) return false;
+  return true;
 }
 
-function assetQualityLinks(assetId) {
-  const rows = [];
-  graph.edges.forEach(edge => {
-    if (edge.type !== "checks") return;
-    const targetAsset = parentOf(edge.target);
-    if (edge.target !== assetId && targetAsset !== assetId) return;
-    const check = nodeById(edge.source);
-    if (!check || check.type !== "quality_check") return;
-    rows.push({
-      id: check.id,
-      label: check.label,
-      type: check.type,
-      relation: edge.type,
-      description: edge.properties?.description || check.properties?.description || "",
-    });
-  });
-  return dedupeFieldLinks(rows);
+function nodePassesCatalogFilters(item) {
+  if (!catalogState.nodeTypes.has(item.type)) return false;
+  if (tagFilterIsActive(catalogState.tags) && ![...catalogState.tags].some(tag => tagsFor(item.id).includes(tag))) return false;
+  if (catalogState.query && !searchTextForNode(item.id).includes(catalogState.query)) return false;
+  return true;
 }
 
-function qualityTargetIds(qualityId) {
-  const ids = new Set();
-  graph.edges.forEach(edge => {
-    if (edge.type !== "checks" || edge.source !== qualityId) return;
-    ids.add(edge.target);
-    ids.add(parentOf(edge.target));
-  });
-  return ids;
+function renderAll() {
+  renderStats();
+  renderCatalog();
+  if (!els.graphPage.classList.contains("hidden")) renderGraphPage();
 }
 
-function renderFieldErMap(model) {
-  const board = document.getElementById("fieldErBoard");
-  const edgeLayer = document.getElementById("fieldEdgeLayer");
-  if (!board || !edgeLayer) return;
-  const layout = fieldErLayout(model);
-  board.innerHTML = "";
-  edgeLayer.innerHTML = "";
-  board.style.width = `${layout.width}px`;
-  board.style.height = `${layout.height}px`;
-  edgeLayer.style.width = `${layout.width}px`;
-  edgeLayer.style.height = `${layout.height}px`;
-  edgeLayer.setAttribute("width", layout.width);
-  edgeLayer.setAttribute("height", layout.height);
+function renderStats() {
+  els.stats.textContent = `${topLevelNodes.length} catalog nodes · ${graph.edges.length} graph edges`;
+}
 
-  model.assetOrder.forEach((type, index) => {
-    const title = document.createElement("div");
-    title.className = "field-lane-title";
-    title.style.left = `${layout.left + index * layout.columnGap}px`;
-    title.textContent = typeLabel[type] || type;
-    board.appendChild(title);
-  });
+function renderCatalog() {
+  renderCatalogFilters();
+  const nodeRows = topLevelNodes
+    .filter(nodePassesCatalogFilters)
+    .sort((a, b) => scoreNode(b, catalogState.query) - scoreNode(a, catalogState.query) || `${a.type}:${a.label}`.localeCompare(`${b.type}:${b.label}`));
+  const edgeRows = graph.edges
+    .filter(edgePassesCatalogFilters)
+    .sort((a, b) => normalizeType(a.type).localeCompare(normalizeType(b.type)) || a.source.localeCompare(b.source));
 
-  model.assets.forEach(asset => {
-    const assetLayout = layout.assets[asset.id];
-    if (!assetLayout) return;
-    const box = document.createElement("div");
-    box.className = "field-asset-box";
-    box.style.left = `${assetLayout.x}px`;
-    box.style.top = `${assetLayout.y}px`;
-    box.style.width = `${layout.assetWidth}px`;
-    box.style.height = `${assetLayout.h}px`;
-    box.dataset.id = asset.id;
-    const fields = layout.fieldsByAsset[asset.id] || [];
-    const quality = assetQualityLinks(asset.id);
-    box.innerHTML = `
-      <div class="field-asset-header">
+  els.catalogSummary.textContent = `${nodeRows.length} nodes and ${edgeRows.length} edges match the current filters.`;
+  els.nodeResults.innerHTML = nodeRows.length
+    ? nodeRows.map(renderNodeResult).join("")
+    : `<div class="empty-state">No nodes match the current filters.</div>`;
+  els.edgeResults.innerHTML = edgeRows.length
+    ? edgeRows.slice(0, 160).map(renderEdgeResult).join("")
+    : `<div class="empty-state">No edges match the current filters.</div>`;
+  renderCatalogDetail();
+}
+
+function renderCatalogFilters() {
+  els.catalogNodeTypes.innerHTML = nodeTypes()
+    .map(type => chip(typeName(type), catalogState.nodeTypes.has(type), "catalog-node-type", type))
+    .join("");
+  els.catalogEdgeTypes.innerHTML = edgeTypes()
+    .map(type => chip(type, catalogState.edgeTypes.has(type), "catalog-edge-type", type))
+    .join("");
+  const tags = allTags();
+  els.catalogTags.innerHTML = tags.length
+    ? tags.map(tag => chip(tag, catalogState.tags.has(tag), "catalog-tag", tag)).join("")
+    : `<div class="empty-state">No tags in current data.</div>`;
+}
+
+function renderNodeResult(item) {
+  return `
+    <div class="result-item ${catalogState.selectedKind === "node" && catalogState.selectedId === item.id ? "selected" : ""}" data-catalog-node="${escapeAttr(item.id)}">
+      <div class="result-row">
+        <span class="result-dot" style="background:${colorFor(item.type)}"></span>
         <div>
-          <strong>${escapeHtml(asset.label)}</strong>
-          <span>${escapeHtml(asset.id)}</span>
+          <div class="result-name">${escapeHtml(item.label)}</div>
+          <div class="result-meta">${escapeHtml(typeName(item.type))} · ${escapeHtml(item.id)}</div>
         </div>
-        ${badge(asset.type)}
       </div>
-      <div class="field-list">
-        ${fields.map(field => renderFieldErRow(field)).join("")}
-      </div>
-      ${quality.length ? `
-        <div class="asset-quality-strip">
-          ${quality.map(check => `
-            <button class="quality-chip" data-id="${escapeAttr(check.id)}" title="${escapeAttr(check.description || check.id)}">
-              ${escapeHtml(check.label)}
-            </button>
-          `).join("")}
-        </div>
-      ` : ""}
-    `;
-    board.appendChild(box);
-  });
-
-  model.edges.forEach(edge => {
-    const a = layout.fieldPositions[edge.source];
-    const b = layout.fieldPositions[edge.target];
-    if (!a || !b) return;
-    drawFieldEdge(edgeLayer, edge, a, b);
-  });
-
-  updateSelectedClasses();
-}
-
-function renderFieldErRow(field) {
-  const semantic = fieldSemanticLinks(field.id);
-  const quality = fieldQualityLinks(field.id);
-  return `
-    <div class="field-er-row" data-id="${escapeAttr(field.id)}" data-field-id="${escapeAttr(field.id)}">
-      <div>
-        <strong>${escapeHtml(field.label)}</strong>
-        <span>${escapeHtml(field.properties?.description || "No field description.")}</span>
-      </div>
-      <small>${escapeHtml(field.properties?.data_type || "")}</small>
-      ${semantic.length ? `<em>${escapeHtml(semantic.map(item => item.label).slice(0, 2).join(", "))}</em>` : ""}
-      ${quality.length ? `<b title="${escapeAttr(quality.map(item => item.label).join(", "))}">${quality.length}</b>` : ""}
+      <button class="inline-action" data-open-graph-node="${escapeAttr(item.id)}" type="button">Graph</button>
     </div>
   `;
 }
 
-function fieldErLayout(model) {
-  const left = 28;
-  const top = 54;
-  const columnGap = 286;
-  const assetWidth = 252;
-  const headerHeight = 68;
-  const rowHeight = 54;
-  const qualityHeaderHeight = 14;
-  const qualityChipHeight = 27;
-  const assetGap = 42;
-  const fieldPositions = {};
-  const fieldsByAsset = {};
-  const assets = {};
-  const yByLane = new Map(model.assetOrder.map((type, index) => [type, top]));
-  model.assets.forEach(asset => {
-    const fields = model.fields.filter(field => parentOf(field.id) === asset.id);
-    const qualityCount = assetQualityLinks(asset.id).length;
-    fieldsByAsset[asset.id] = fields;
-    const laneIndex = Math.max(0, model.assetOrder.indexOf(asset.type));
-    const x = left + laneIndex * columnGap;
-    const y = yByLane.get(asset.type) || top;
-    const qualityHeight = qualityCount ? qualityHeaderHeight + qualityCount * qualityChipHeight : 0;
-    const h = headerHeight + fields.length * rowHeight + 12 + qualityHeight;
-    assets[asset.id] = { x, y, h };
-    fields.forEach((field, index) => {
-      fieldPositions[field.id] = {
-        x,
-        y: y + headerHeight + index * rowHeight + rowHeight / 2,
-        right: x + assetWidth,
-        left: x,
-      };
-    });
-    yByLane.set(asset.type, y + h + assetGap);
-  });
-  const height = Math.max(620, Math.max(...[...yByLane.values()]) + 30);
-  const width = left + model.assetOrder.length * columnGap + assetWidth + 40;
-  return { left, top, columnGap, assetWidth, assets, fieldsByAsset, fieldPositions, width, height };
-}
-
-function drawFieldEdge(edgeLayer, edge, a, b) {
-  const leftToRight = a.right <= b.left;
-  const ax = leftToRight ? a.right : a.left;
-  const bx = leftToRight ? b.left : b.right;
-  const ay = a.y;
-  const by = b.y;
-  const mid = Math.max(44, Math.abs(bx - ax) / 2);
-  const d = `M ${ax} ${ay} C ${leftToRight ? ax + mid : ax - mid} ${ay}, ${leftToRight ? bx - mid : bx + mid} ${by}, ${bx} ${by}`;
-  const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
-  const active = selectedEdge?.id === edge.id || edge.source === selected || edge.target === selected;
-  path.setAttribute("class", `field-edge-path ${active ? "selected" : ""}`);
-  path.setAttribute("d", d);
-  path.setAttribute("fill", "none");
-  path.dataset.edgeId = edge.id;
-  path.addEventListener("click", () => selectEdge(edge));
-  edgeLayer.appendChild(path);
-}
-
-function pageHeader(title, description, actions = []) {
+function renderEdgeResult(edge) {
+  const normalized = normalizedEdge(edge);
+  const selected = catalogState.selectedKind === "edge" && catalogState.selectedId === edge.id;
   return `
-    <div class="page-header">
-      <div>
-        <div class="eyebrow">${escapeHtml(page)}</div>
-        <h2>${escapeHtml(title)}</h2>
-        <p>${escapeHtml(description)}</p>
+    <div class="edge-item ${selected ? "selected" : ""}" data-catalog-edge="${escapeAttr(edge.id)}">
+      <div class="edge-line">
+        <strong>${escapeHtml(label(normalized.source))}</strong>
+        <span class="edge-pill">${escapeHtml(normalized.type)}</span>
+        <strong>${escapeHtml(label(normalized.target))}</strong>
       </div>
-      <div class="page-actions">
-        ${actions.map(([label, action, id], index) => `<button class="${index === 0 ? "primary" : ""}" data-action="${escapeAttr(action)}" data-id="${escapeAttr(id || selected)}">${escapeHtml(label)}</button>`).join("")}
-      </div>
+      <div class="edge-meta">${escapeHtml(normalized.sourceOriginal)} -> ${escapeHtml(normalized.targetOriginal)}</div>
+      ${normalized.description ? `<div class="edge-meta">${escapeHtml(normalized.description)}</div>` : ""}
+      <button class="inline-action" data-open-graph-edge="${escapeAttr(edge.id)}" type="button">Graph</button>
     </div>
   `;
 }
 
-function metric(label, value) {
-  return `<div class="metric"><strong>${escapeHtml(value)}</strong><span>${escapeHtml(label)}</span></div>`;
+function scoreNode(item, query) {
+  if (!query) return 0;
+  const name = String(item.label || "").toLowerCase();
+  const id = item.id.toLowerCase();
+  if (name === query || id === query) return 100;
+  if (name.startsWith(query)) return 80;
+  if (id.includes(query)) return 50;
+  if (searchTextForNode(item.id).includes(query)) return 20;
+  return 0;
 }
 
-function tile(node) {
-  if (!node) return "";
-  return `
-    <div class="tile ${node.id === selected ? "selected" : ""}" data-id="${escapeAttr(node.id)}">
-      <div class="tile-top">
-        <div class="tile-title">${escapeHtml(node.label)}</div>
-        ${badge(node.type)}
-      </div>
-      <div class="tile-desc">${escapeHtml(node.properties?.description || raw(node.id).description || node.id)}</div>
-    </div>
-  `;
-}
+function renderCatalogDetail() {
+  const isEdge = catalogState.selectedKind === "edge";
+  const id = catalogState.selectedId;
+  const selectedNode = isEdge ? null : node(id);
+  const selectedEdge = isEdge ? graphEdge(id) : null;
 
-function connectedTile(node) {
-  if (!node) return "";
-  return `
-    <div class="tile connected-tile" data-id="${escapeAttr(node.id)}">
-      <div class="tile-top">
-        <div class="tile-title">${escapeHtml(node.label)}</div>
-        ${badge(node.type)}
-      </div>
-      <div class="tile-desc">${escapeHtml(node.properties?.description || raw(node.id).description || node.id)}</div>
-    </div>
-  `;
-}
-
-function flowCard(id) {
-  const node = nodeById(id);
-  if (!node) return "";
-  return `
-    <div class="flow-card ${node.id === selected ? "selected" : ""}" data-id="${escapeAttr(node.id)}">
-      ${badge(node.type)}
-      <h4>${escapeHtml(node.label)}</h4>
-      <p>${escapeHtml(node.properties?.description || raw(node.id).description || "")}</p>
-    </div>
-  `;
-}
-
-function relationRow(rel) {
-  const otherType = typeOf(rel.otherId);
-  return `
-    <div class="relation-row" data-id="${escapeAttr(rel.otherId)}" data-edge-source="${escapeAttr(rel.source || "")}" data-edge-target="${escapeAttr(rel.target || "")}" data-edge-type="${escapeAttr(rel.type || "")}">
-      <div class="relation-top">
-        ${badge(otherType)}
-        <span>${escapeHtml(rel.type)}</span>
-      </div>
-      <strong>${escapeHtml(rel.otherLabel || labelOf(rel.otherId))}</strong>
-      <small>${rel.description ? escapeHtml(rel.description) : escapeHtml(rel.otherId)}</small>
-    </div>
-  `;
-}
-
-function directRelationsFor(id) {
-  return graph.edges
-    .filter(edge => edge.source === id || edge.target === id)
-    .map(edge => {
-      const direction = edge.source === id ? "out" : "in";
-      const otherId = direction === "out" ? edge.target : edge.source;
-      return {
-        id: edge.id,
-        edge,
-        type: edge.type,
-        direction,
-        source: edge.source,
-        target: edge.target,
-        otherId,
-        otherLabel: labelOf(otherId),
-        otherType: typeOf(otherId),
-        description: edge.properties?.description || "",
-      };
-    })
-    .sort((a, b) => `${a.type}:${a.direction}:${a.otherLabel}`.localeCompare(`${b.type}:${b.direction}:${b.otherLabel}`));
-}
-
-function groupRelationsByType(relations) {
-  return relations.reduce((acc, rel) => {
-    acc[rel.type] ||= [];
-    acc[rel.type].push(rel);
-    return acc;
-  }, {});
-}
-
-function directRelationCard(rel) {
-  return `
-    <div class="direct-relation-card" data-id="${escapeAttr(rel.otherId)}">
-      <div class="relation-top">
-        ${badge(rel.otherType)}
-        <span>${escapeHtml(rel.direction === "out" ? "outgoing" : "incoming")}</span>
-      </div>
-      <strong>${escapeHtml(rel.otherLabel)}</strong>
-      <small>${escapeHtml(rel.otherId)}</small>
-      <div class="edge-pill">${escapeHtml(rel.direction === "out" ? `${labelOf(rel.source)} -> ${rel.type} -> ${labelOf(rel.target)}` : `${labelOf(rel.source)} -> ${rel.type} -> ${labelOf(rel.target)}`)}</div>
-      ${rel.description ? `<p>${escapeHtml(rel.description)}</p>` : ""}
-    </div>
-  `;
-}
-
-function directRelationMini(rel) {
-  return `
-    <div class="relation-row" data-id="${escapeAttr(rel.otherId)}">
-      <div class="relation-top">
-        ${badge(rel.otherType)}
-        <span>${escapeHtml(rel.direction)}</span>
-      </div>
-      <strong>${escapeHtml(rel.otherLabel)}</strong>
-      <small>${escapeHtml(rel.description || rel.otherId)}</small>
-    </div>
-  `;
-}
-
-function renderOneHopGraph(centerNode, relations) {
-  const board = document.getElementById("oneHopBoard");
-  const edgeLayer = document.getElementById("oneHopEdgeLayer");
-  if (!board || !edgeLayer) return;
-
-  const width = 1040;
-  const height = 620;
-  const center = { x: width / 2 - 92, y: height / 2 - 38 };
-  const positions = { [centerNode.id]: center };
-  const neighborIds = [...new Set(relations.map(rel => rel.otherId))];
-  const radiusX = 360;
-  const radiusY = 220;
-
-  neighborIds.forEach((id, index) => {
-    const angle = (-Math.PI / 2) + (index / Math.max(1, neighborIds.length)) * Math.PI * 2;
-    positions[id] = {
-      x: width / 2 + Math.cos(angle) * radiusX - 92,
-      y: height / 2 + Math.sin(angle) * radiusY - 38,
-    };
-  });
-
-  board.innerHTML = "";
-  edgeLayer.innerHTML = "";
-  board.style.width = `${width}px`;
-  board.style.height = `${height}px`;
-  edgeLayer.style.width = `${width}px`;
-  edgeLayer.style.height = `${height}px`;
-  edgeLayer.setAttribute("width", width);
-  edgeLayer.setAttribute("height", height);
-
-  relations.forEach(rel => {
-    const a = positions[rel.source];
-    const b = positions[rel.target];
-    if (!a || !b) return;
-    drawOneHopEdge(edgeLayer, rel, a, b);
-  });
-
-  [centerNode.id, ...neighborIds].forEach(id => {
-    const node = nodeById(id);
-    const pos = positions[id];
-    if (!node || !pos) return;
-    const card = document.createElement("div");
-    card.className = `one-hop-node ${id === centerNode.id ? "center" : ""} ${id === selected ? "selected" : ""}`;
-    card.style.left = `${pos.x}px`;
-    card.style.top = `${pos.y}px`;
-    card.dataset.id = id;
-    card.innerHTML = `
-      <div class="node-top">
-        <span class="node-dot" style="background:${color[node.type] || "#64748b"}"></span>
-        <div class="node-label">${escapeHtml(node.label)}</div>
-      </div>
-      <div class="node-desc">${escapeHtml(typeLabel[node.type] || node.type)}</div>
-    `;
-    board.appendChild(card);
-  });
-}
-
-function drawOneHopEdge(edgeLayer, rel, a, b) {
-  const ax = a.x + 92;
-  const ay = a.y + 38;
-  const bx = b.x + 92;
-  const by = b.y + 38;
-  const midX = (ax + bx) / 2;
-  const midY = (ay + by) / 2;
-  const edge = {
-    id: rel.id,
-    source: rel.source,
-    target: rel.target,
-    sourceOriginal: rel.source,
-    targetOriginal: rel.target,
-    type: rel.type,
-    descriptions: rel.description ? [rel.description] : [],
-  };
-
-  const line = document.createElementNS("http://www.w3.org/2000/svg", "line");
-  line.setAttribute("class", `one-hop-edge ${selectedEdge?.id === rel.id ? "selected" : ""}`);
-  line.setAttribute("x1", ax);
-  line.setAttribute("y1", ay);
-  line.setAttribute("x2", bx);
-  line.setAttribute("y2", by);
-  line.dataset.edgeId = rel.id;
-  line.addEventListener("click", () => {
-    selectedEdge = edge;
-    render();
-  });
-  edgeLayer.appendChild(line);
-
-  const label = document.createElementNS("http://www.w3.org/2000/svg", "text");
-  label.setAttribute("class", `one-hop-edge-label ${selectedEdge?.id === rel.id ? "selected" : ""}`);
-  label.setAttribute("x", midX);
-  label.setAttribute("y", midY - 5);
-  label.setAttribute("text-anchor", "middle");
-  label.textContent = rel.type;
-  label.dataset.edgeId = rel.id;
-  label.addEventListener("click", () => {
-    selectedEdge = edge;
-    render();
-  });
-  edgeLayer.appendChild(label);
-}
-
-function renderProfile() {
-  if (selectedLogic) {
-    titleEl.textContent = selectedLogic.label;
-    badgeEl.textContent = "Scenario Logic";
-    badgeEl.style.background = `${color.business_logic}18`;
-    badgeEl.style.color = color.business_logic;
-    descEl.textContent = selectedLogic.description || "No description.";
-    profileBodyEl.innerHTML = `
-      <div class="profile-section">
-        <h3>Scenario</h3>
-        ${kv("Scenario", `${labelOf(selectedLogic.scenarioId)} (${selectedLogic.scenarioId})`)}
-        ${kv("Source", "scenario.business_logic")}
-      </div>
-      <div class="profile-section">
-        <h3>Full Description</h3>
-        <p class="muted">${escapeHtml(selectedLogic.description || "No description.")}</p>
-      </div>
-    `;
+  if (!selectedNode && !selectedEdge) {
+    els.catalogDetailBadge.textContent = "Nothing selected";
+    els.catalogDetailTitle.textContent = "Select a result";
+    els.catalogDetailDescription.textContent = "The raw YAML-derived catalog record or graph edge will appear here.";
+    els.catalogDetailBody.innerHTML = "";
+    els.openGraph.disabled = true;
     return;
   }
+
+  els.openGraph.disabled = false;
   if (selectedEdge) {
-    const sourceId = selectedEdge.sourceOriginal || selectedEdge.source;
-    const targetId = selectedEdge.targetOriginal || selectedEdge.target;
-    titleEl.textContent = selectedEdge.type;
-    badgeEl.textContent = "Relationship";
-    badgeEl.style.background = `${color.scenario}18`;
-    badgeEl.style.color = color.scenario;
-    descEl.textContent = selectedEdge.descriptions?.[0] || selectedEdge.properties?.description || "No description.";
-    profileBodyEl.innerHTML = `
-      <div class="profile-section">
-        <h3>Relationship Detail</h3>
-        ${edgeInfo(selectedEdge)}
-      </div>
-      <div class="profile-section">
-        <h3>Connected Nodes</h3>
-        <div class="connected-node-list">
-          ${connectedTile(nodeById(sourceId))}
-          ${connectedTile(nodeById(targetId))}
-        </div>
-      </div>
+    const normalized = normalizedEdge(selectedEdge);
+    els.catalogDetailBadge.textContent = "Edge";
+    els.catalogDetailBadge.style.background = "#eef2f7";
+    els.catalogDetailBadge.style.color = "#475467";
+    els.catalogDetailTitle.textContent = normalized.type;
+    els.catalogDetailDescription.textContent = normalized.description || "No edge description.";
+    els.catalogDetailBody.innerHTML = `
+      <section class="detail-section">
+        <h3>Edge Metadata</h3>
+        ${kv("ID", selectedEdge.id)}
+        ${kv("Type", normalized.type)}
+        ${kv("Source", `${label(normalized.source)} (${selectedEdge.source})`)}
+        ${kv("Target", `${label(normalized.target)} (${selectedEdge.target})`)}
+      </section>
+      ${renderConstraints(normalized.constraints, "Relationship Constraints")}
+      <section class="detail-section">
+        <h3>Raw Edge</h3>
+        <pre class="raw-block">${escapeHtml(JSON.stringify(selectedEdge, null, 2))}</pre>
+      </section>
     `;
-    wireClicks(profileBodyEl);
-    return;
-  }
-  const node = nodeById(selected);
-  if (!node) return;
-  const data = raw(selected);
-  titleEl.textContent = node.label;
-  badgeEl.textContent = typeLabel[node.type] || node.type;
-  badgeEl.style.background = `${color[node.type] || "#2563eb"}18`;
-  badgeEl.style.color = color[node.type] || "#2563eb";
-  descEl.textContent = node.properties?.description || data.description || "No description.";
-
-  if (["column", "api_field", "feedfile_field", "dashboard_field"].includes(node.type)) {
-    renderFieldProfile(node);
     return;
   }
 
-  profileBodyEl.innerHTML = `
-    <div class="profile-section">
-      <button class="primary" data-action="asset" data-id="${escapeAttr(node.id)}">Open Asset Profile</button>
-    </div>
-    <div class="profile-section">
+  const data = raw(selectedNode.id);
+  els.catalogDetailBadge.textContent = typeName(selectedNode.type);
+  els.catalogDetailBadge.style.background = `${colorFor(selectedNode.type)}18`;
+  els.catalogDetailBadge.style.color = colorFor(selectedNode.type);
+  els.catalogDetailTitle.textContent = selectedNode.label;
+  els.catalogDetailDescription.textContent = description(selectedNode.id) || "No description.";
+  els.catalogDetailBody.innerHTML = renderNodeDetail(selectedNode, data, true);
+}
+
+function renderNodeDetail(item, data, includeRaw) {
+  const children = childItems(item.id);
+  const relationships = parentEdges()
+    .filter(edge => edge.source === item.id || edge.target === item.id)
+    .slice(0, 100);
+  return `
+    <section class="detail-section">
       <h3>Overview</h3>
-      ${overviewKv(node, data)}
+      ${kv("ID", item.id)}
+      ${kv("Type", typeName(item.type))}
+      ${description(item.id) ? kv("Description", description(item.id)) : ""}
+      ${data.term ? kv("Term", data.term) : ""}
+      ${data.definition ? kv("Definition", data.definition) : ""}
+      ${data.schema ? kv("Schema", data.schema) : ""}
+      ${data.owner ? kv("Owner", data.owner) : ""}
+      ${data.verified ? kv("Verified", [data.verified.status ? "true" : "false", data.verified.reason].filter(Boolean).join(" · ")) : ""}
+      ${item.properties?.source_file ? kv("Source", item.properties.source_file) : ""}
+      ${tagsFor(item.id).length ? `<div class="tag-list">${tagsFor(item.id).map(tag => `<span class="tag-pill">${escapeHtml(tag)}</span>`).join("")}</div>` : ""}
+    </section>
+    ${renderConstraints(data.constraints || item.properties?.constraints, "Entity Constraints")}
+    <section class="detail-section">
+      <h3>Fields / Properties</h3>
+      ${children.length ? renderFieldTable(children) : `<div class="empty-state">No generated fields or properties.</div>`}
+    </section>
+    <section class="detail-section">
+      <h3>Direct Relationships</h3>
+      ${relationships.length ? `<div class="mini-list">${relationships.map(renderMiniEdgeCard).join("")}</div>` : `<div class="empty-state">No direct node-level relationships.</div>`}
+    </section>
+    ${includeRaw ? `
+      <section class="detail-section">
+        <h3>Raw Catalog Record</h3>
+        <pre class="raw-block">${escapeHtml(JSON.stringify(data, null, 2))}</pre>
+      </section>
+    ` : ""}
+  `;
+}
+
+function renderMiniEdgeCard(edge) {
+  const other = edge.source === graphState.focusId ? edge.target : edge.source;
+  return `
+    <div class="mini-card" data-related-node="${escapeAttr(other)}" data-mini-edge="${escapeAttr(edge.id)}">
+      <span class="edge-pill">${escapeHtml(edge.type)}</span>
+      <strong>${escapeHtml(label(other))}</strong>
+      <small>${escapeHtml(typeName(nodeType(other)))} · ${escapeHtml(other)}</small>
+      ${edge.description ? `<p>${escapeHtml(edge.description)}</p>` : ""}
     </div>
-    <div class="profile-section">
+  `;
+}
+
+function renderGraphPage() {
+  if (!graphState.focusId || !node(graphState.focusId)) graphState.focusId = chooseInitialNode();
+  graphState.visible = graphNeighborhood();
+  renderGraphFilters();
+  renderGraphFocus();
+  renderGraph();
+  renderGraphDetail();
+}
+
+function renderGraphFilters() {
+  els.depth.value = String(graphState.maxDepth);
+  els.depthValue.textContent = String(graphState.maxDepth);
+  els.graphNodeTypes.innerHTML = nodeTypes()
+    .map(type => chip(typeName(type), graphState.nodeTypes.has(type), "graph-node-type", type))
+    .join("");
+  els.graphEdgeTypes.innerHTML = edgeTypes()
+    .map(type => chip(type, graphState.edgeTypes.has(type), "graph-edge-type", type))
+    .join("");
+  const tags = allTags();
+  els.graphTags.innerHTML = tags.length
+    ? tags.map(tag => chip(tag, graphState.tags.has(tag), "graph-tag", tag)).join("")
+    : `<div class="empty-state">No tags in current data.</div>`;
+}
+
+function renderGraphFocus() {
+  const focus = node(graphState.focusId);
+  els.graphFocusCard.innerHTML = `
+    <strong>${escapeHtml(label(graphState.focusId))}</strong>
+    <small>${escapeHtml(typeName(focus?.type))} · ${escapeHtml(graphState.focusId)}</small>
+  `;
+  els.focusType.textContent = typeName(focus?.type);
+  els.focusType.style.background = `${colorFor(focus?.type)}18`;
+  els.focusType.style.color = colorFor(focus?.type);
+  els.focusTitle.textContent = label(graphState.focusId);
+  els.focusDescription.textContent = description(graphState.focusId) || "No description.";
+  els.expandSelected.textContent = allVisibleFieldNodesExpanded() ? "Hide all fields" : "Show all fields";
+}
+
+function graphNeighborhood() {
+  const traversalEdges = parentEdges().filter(edge => {
+    if (!graphState.nodeTypes.has(nodeType(edge.source)) || !graphState.nodeTypes.has(nodeType(edge.target))) return false;
+    if (tagFilterIsActive(graphState.tags)) {
+      const tagPool = [...tagsFor(edge.source), ...tagsFor(edge.target)];
+      if (![...graphState.tags].some(tag => tagPool.includes(tag))) return false;
+    }
+    return true;
+  });
+  const adjacency = new Map();
+  traversalEdges.forEach(edge => {
+    if (!adjacency.has(edge.source)) adjacency.set(edge.source, []);
+    if (!adjacency.has(edge.target)) adjacency.set(edge.target, []);
+    adjacency.get(edge.source).push(edge);
+    adjacency.get(edge.target).push(edge);
+  });
+
+  const visited = new Map([[graphState.focusId, 0]]);
+  const queue = [graphState.focusId];
+  while (queue.length) {
+    const current = queue.shift();
+    const depth = visited.get(current);
+    if (depth >= graphState.maxDepth) continue;
+    for (const edge of adjacency.get(current) || []) {
+      const next = edge.source === current ? edge.target : edge.source;
+      if (visited.has(next)) continue;
+      visited.set(next, depth + 1);
+      queue.push(next);
+    }
+  }
+
+  const nodeSet = new Set([...visited.keys()].filter(id => node(id)));
+  const candidateChildEdges = childEdges().filter(edge => {
+    if (graphState.edgeTypes.size && !graphState.edgeTypes.has(edge.type)) return false;
+    if (isChildNode(edge.sourceOriginal) && !isExpanded(edge.source)) return false;
+    if (isChildNode(edge.targetOriginal) && !isExpanded(edge.target)) return false;
+    return true;
+  });
+
+  candidateChildEdges.forEach(edge => {
+    if (edge.type !== "HAS_TERM") return;
+    if (!nodeSet.has(edge.source) && !nodeSet.has(edge.target)) return;
+    const termId = nodeType(edge.sourceOriginal) === "term" ? edge.sourceOriginal : edge.targetOriginal;
+    if (nodeType(termId) !== "term") return;
+    if (!graphState.nodeTypes.has("term")) return;
+    if (tagFilterIsActive(graphState.tags)) {
+      const tagPool = [...tagsFor(edge.source), ...tagsFor(edge.target)];
+      if (![...graphState.tags].some(tag => tagPool.includes(tag))) return;
+    }
+    nodeSet.add(termId);
+    if (!visited.has(termId)) {
+      const parentId = edge.source === termId ? edge.target : edge.source;
+      visited.set(termId, (visited.get(parentId) || 0) + 1);
+    }
+  });
+
+  const visibleEdges = traversalEdges.filter(edge => {
+    if (!nodeSet.has(edge.source) || !nodeSet.has(edge.target)) return false;
+    if (graphState.edgeTypes.size && !graphState.edgeTypes.has(edge.type)) return false;
+    return true;
+  });
+  const visibleChildEdges = candidateChildEdges.filter(edge => {
+    if (!nodeSet.has(edge.source) || !nodeSet.has(edge.target)) return false;
+    return true;
+  });
+  return {
+    nodes: [...nodeSet].map(id => node(id)),
+    edges: visibleEdges,
+    childEdges: visibleChildEdges,
+    depthById: visited,
+    positions: new Map(),
+  };
+}
+
+function graphLayout(nodes, depthById) {
+  const positions = new Map();
+  const width = 1800;
+  const height = 1300;
+  const lanes = directionalLanes(nodes);
+  positions.set(graphState.focusId, { x: 785, y: 560 });
+
+  const expandedLayout = hasExpandedFieldNodes();
+  const laneGap = expandedLayout ? 370 : 230;
+  const topGap = expandedLayout ? 270 : 230;
+  placeLane(lanes.left, 240, 170, laneGap, positions, width, height);
+  placeLane(lanes.right, 1280, 170, laneGap, positions, width, height);
+  placeLane(lanes.top, 690, 70, topGap, positions, width, height, true);
+  placeLane(lanes.bottom, 690, expandedLayout ? 930 : 880, topGap, positions, width, height, true);
+
+  const placed = new Set(positions.keys());
+  const fallbackGroups = new Map();
+  nodes.forEach(item => {
+    if (placed.has(item.id)) return;
+    const depth = depthById.get(item.id) || 1;
+    if (!fallbackGroups.has(depth)) fallbackGroups.set(depth, []);
+    fallbackGroups.get(depth).push(item);
+  });
+
+  [...fallbackGroups.entries()].forEach(([depth, group]) => {
+    const radiusX = 420 + (depth - 1) * 250;
+    const radiusY = 270 + (depth - 1) * 150;
+    group.sort((a, b) => `${a.type}:${a.label}`.localeCompare(`${b.type}:${b.label}`));
+    group.forEach((item, index) => {
+      const angle = (-Math.PI / 2) + (Math.PI * 2 * index) / Math.max(group.length, 1);
+      positions.set(item.id, {
+        x: clamp(900 + Math.cos(angle) * radiusX - 115, 30, width - 260),
+        y: clamp(640 + Math.sin(angle) * radiusY - 58, 30, height - 180),
+      });
+    });
+  });
+  return positions;
+}
+
+function directionalLanes(nodes) {
+  const visibleIds = new Set(nodes.map(item => item.id));
+  const laneById = new Map([[graphState.focusId, "center"]]);
+  const scoreById = new Map([[graphState.focusId, 0]]);
+  const queue = [graphState.focusId];
+  const edges = graphState.visible.edges;
+
+  while (queue.length) {
+    const current = queue.shift();
+    const currentScore = scoreById.get(current) || 0;
+    for (const edge of edges) {
+      if (edge.source !== current && edge.target !== current) continue;
+      const other = edge.source === current ? edge.target : edge.source;
+      if (!visibleIds.has(other) || laneById.has(other)) continue;
+      const delta = directionalDelta(edge, current);
+      const nextScore = currentScore + delta.score;
+      scoreById.set(other, nextScore);
+      laneById.set(other, laneFor(other, edge, nextScore));
+      queue.push(other);
+    }
+  }
+
+  const lanes = { left: [], right: [], top: [], bottom: [] };
+  nodes.forEach(item => {
+    if (item.id === graphState.focusId) return;
+    const lane = laneById.get(item.id) || laneFor(item.id, null, scoreById.get(item.id) || 0);
+    lanes[lane].push(item);
+  });
+  Object.values(lanes).forEach(group => {
+    group.sort((a, b) => {
+      const da = graphState.visible.depthById.get(a.id) || 1;
+      const db = graphState.visible.depthById.get(b.id) || 1;
+      return da - db || `${a.type}:${a.label}`.localeCompare(`${b.type}:${b.label}`);
+    });
+  });
+  return lanes;
+}
+
+function directionalDelta(edge, fromId) {
+  const type = edge.type;
+  const fromSource = edge.source === fromId;
+  if (["READS_FROM", "DERIVES_FROM", "REFERENCES", "DEPENDS_ON"].includes(type)) {
+    return { score: fromSource ? -1 : 1 };
+  }
+  if (["IMPLEMENTED_BY", "REPRESENTED_BY", "MAPS_TO"].includes(type)) {
+    return { score: fromSource ? 1 : -1 };
+  }
+  if (["CREATES", "VALUES", "SETTLES", "AGGREGATES", "WRITES_TO"].includes(type)) {
+    return { score: fromSource ? 1 : -1 };
+  }
+  return { score: 0 };
+}
+
+function laneFor(id, edge, score) {
+  if (nodeType(id) === "term") return "top";
+  if (edge?.type === "HAS_TERM") return "top";
+  if (score < 0) return "left";
+  if (score > 0) return "right";
+  return "bottom";
+}
+
+function placeLane(group, startX, startY, gapY, positions, width, height, horizontal = false) {
+  if (!group.length) return;
+  group.forEach((item, index) => {
+    if (horizontal) {
+      positions.set(item.id, {
+        x: clamp(startX + index * gapY, 30, width - 260),
+        y: clamp(startY, 30, height - 180),
+      });
+      return;
+    }
+    positions.set(item.id, {
+      x: clamp(startX, 30, width - 260),
+      y: clamp(startY + index * gapY, 30, height - 180),
+    });
+  });
+}
+
+function renderGraph() {
+  const model = graphState.visible;
+  const positions = graphLayout(model.nodes, model.depthById);
+  model.positions = positions;
+  els.board.innerHTML = "";
+  els.edgeLayer.innerHTML = "";
+  els.fieldEdgeLayer.innerHTML = "";
+  ensureArrowDefs(els.edgeLayer, "node");
+  ensureArrowDefs(els.fieldEdgeLayer, "field");
+  renderLaneLabels();
+
+  model.nodes.forEach(item => {
+    const p = positions.get(item.id);
+    if (!p) return;
+    const isExpanded = isExpandedNode(item.id);
+    const children = isExpanded ? childItems(item.id).slice(0, 18) : [];
+    const div = document.createElement("div");
+    div.className = `graph-node ${isExpanded ? "expanded" : ""} ${item.id === graphState.focusId ? "center selected" : ""}`;
+    div.dataset.graphNode = item.id;
+    div.style.left = `${p.x}px`;
+    div.style.top = `${p.y}px`;
+    div.innerHTML = `
+      <div class="node-main">
+        <div class="node-top">
+          <div class="node-title">
+            <span class="node-dot" style="background:${colorFor(item.type)}"></span>
+            <div>
+              <strong>${escapeHtml(item.label)}</strong>
+              <small>${escapeHtml(typeName(item.type))}</small>
+            </div>
+          </div>
+      ${childItems(item.id).length ? `<button class="expand-toggle" data-toggle-node-fields="${escapeAttr(item.id)}" type="button">${isExpanded ? "Hide" : "Show"}</button>` : ""}
+        </div>
+        <div class="node-description">${escapeHtml(description(item.id) || item.id)}</div>
+      </div>
+      ${children.length ? `<div class="field-list">${children.map(renderChildRow).join("")}</div>` : ""}
+    `;
+    els.board.appendChild(div);
+  });
+
+  requestAnimationFrame(() => {
+    drawEdges(model.edges, false, els.edgeLayer);
+    drawEdges(model.childEdges, true, els.fieldEdgeLayer);
+  });
+}
+
+function renderLaneLabels() {
+  [
+    { label: "Glossary / Terms", x: 690, y: 34 },
+    { label: "Upstream / Dependencies", x: 200, y: 132 },
+    { label: "Focus", x: 780, y: 500 },
+    { label: "Downstream / Implementation", x: 1240, y: 132 },
+    { label: "Related Context", x: 690, y: hasExpandedFieldNodes() ? 885 : 835 },
+  ].forEach(item => {
+    const div = document.createElement("div");
+    div.className = "lane-label";
+    div.style.left = `${item.x}px`;
+    div.style.top = `${item.y}px`;
+    div.textContent = item.label;
+    els.board.appendChild(div);
+  });
+}
+
+function renderChildRow(item) {
+  return `
+    <div class="field-row ${graphState.selectedFieldId === item.id ? "selected" : ""}" data-child-id="${escapeAttr(item.id)}" title="${escapeAttr(item.description || item.id)}">
+      <div>
+        <strong>${escapeHtml(item.name)}</strong>
+        <small>${escapeHtml(item.description || item.term || "No field description.")}</small>
+      </div>
+      <em>${escapeHtml(item.semanticRole || item.dataType || typeName(item.type))}</em>
+    </div>
+  `;
+}
+
+function isExpandedNode(id) {
+  return graphState.expanded.has(id);
+}
+
+function isExpanded(id) {
+  return isExpandedNode(id);
+}
+
+function visibleExpandableNodeIds() {
+  return graphState.visible.nodes
+    .map(item => item.id)
+    .filter(id => childItems(id).length);
+}
+
+function allVisibleFieldNodesExpanded() {
+  const ids = visibleExpandableNodeIds();
+  return ids.length > 0 && ids.every(id => graphState.expanded.has(id));
+}
+
+function hasExpandedFieldNodes() {
+  return visibleExpandableNodeIds().some(id => graphState.expanded.has(id));
+}
+
+function setAllVisibleFields(open) {
+  visibleExpandableNodeIds().forEach(id => {
+    if (open) graphState.expanded.add(id);
+    else graphState.expanded.delete(id);
+  });
+}
+
+function drawEdges(edges, fieldLevel, layer) {
+  edges.forEach(edge => {
+    const points = fieldLevel ? childAnchorPoints(edge) : nodeAnchorPoints(edge);
+    if (!points) return;
+    const { source, target } = points;
+    const pathData = curvedPath(source, target);
+    if (!fieldLevel) {
+      const hitPath = document.createElementNS("http://www.w3.org/2000/svg", "path");
+      hitPath.setAttribute("d", pathData);
+      hitPath.setAttribute("class", `edge-hit ${edge.id === graphState.selectedEdgeId ? "selected" : ""}`);
+      hitPath.dataset.graphEdge = edge.id;
+      hitPath.addEventListener("click", event => {
+        event.stopPropagation();
+        selectGraphEdge(edge);
+      });
+      layer.appendChild(hitPath);
+    }
+
+    const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
+    path.setAttribute("d", pathData);
+    path.setAttribute("class", `edge-path ${fieldLevel ? "field-edge" : ""} ${edge.id === graphState.selectedEdgeId ? "selected" : ""}`);
+    path.setAttribute(
+      "marker-end",
+      edge.id === graphState.selectedEdgeId
+        ? fieldLevel ? "url(#arrow-selected-field)" : "url(#arrow-selected-node)"
+        : fieldLevel ? "url(#arrow-field)" : "url(#arrow-node)"
+    );
+    path.dataset.graphEdge = edge.id;
+    path.addEventListener("click", event => {
+      event.stopPropagation();
+      selectGraphEdge(edge);
+    });
+    layer.appendChild(path);
+
+    const labelEl = document.createElementNS("http://www.w3.org/2000/svg", "text");
+    labelEl.setAttribute("x", (source.x + target.x) / 2);
+    labelEl.setAttribute("y", (source.y + target.y) / 2 - 6);
+    labelEl.setAttribute("text-anchor", "middle");
+    labelEl.setAttribute("class", `edge-label ${edge.id === graphState.selectedEdgeId ? "selected" : ""}`);
+    labelEl.dataset.graphEdge = edge.id;
+    labelEl.textContent = edge.type;
+    labelEl.addEventListener("click", event => {
+      event.stopPropagation();
+      selectGraphEdge(edge);
+    });
+    layer.appendChild(labelEl);
+  });
+}
+
+function ensureArrowDefs(layer, variant) {
+  const markerId = variant === "field" ? "arrow-field" : "arrow-node";
+  const selectedMarkerId = variant === "field" ? "arrow-selected-field" : "arrow-selected-node";
+  const color = variant === "field" ? "#b7791f" : "#98a2b3";
+  const defs = document.createElementNS("http://www.w3.org/2000/svg", "defs");
+  defs.innerHTML = `
+    <marker id="${markerId}" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="${color}"></path>
+    </marker>
+    <marker id="${selectedMarkerId}" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#1f6feb"></path>
+    </marker>
+  `;
+  layer.appendChild(defs);
+}
+
+function curvedPath(source, target) {
+  const dx = target.x - source.x;
+  const dy = target.y - source.y;
+  if (Math.abs(dx) >= Math.abs(dy)) {
+    const bend = Math.max(60, Math.abs(dx) * 0.45);
+    const sign = dx >= 0 ? 1 : -1;
+    return `M ${source.x} ${source.y} C ${source.x + bend * sign} ${source.y}, ${target.x - bend * sign} ${target.y}, ${target.x} ${target.y}`;
+  }
+  const bend = Math.max(60, Math.abs(dy) * 0.45);
+  const sign = dy >= 0 ? 1 : -1;
+  return `M ${source.x} ${source.y} C ${source.x} ${source.y + bend * sign}, ${target.x} ${target.y - bend * sign}, ${target.x} ${target.y}`;
+}
+
+function nodeAnchorPoints(edge) {
+  const sourceBox = graphNodeElement(edge.source);
+  const targetBox = graphNodeElement(edge.target);
+  if (!sourceBox || !targetBox) return null;
+  return anchorPair(sourceBox, targetBox);
+}
+
+function childAnchorPoints(edge) {
+  const sourceEl = edgeEndpointElement(edge.sourceOriginal, edge.source);
+  const targetEl = edgeEndpointElement(edge.targetOriginal, edge.target);
+  if (!sourceEl || !targetEl) return null;
+  sourceEl.classList.add("connected");
+  targetEl.classList.add("connected");
+  return anchorPair(sourceEl, targetEl);
+}
+
+function edgeEndpointElement(originalId, parentId) {
+  if (isChildNode(originalId)) return childElement(originalId);
+  return graphNodeElement(originalId) || graphNodeElement(parentId);
+}
+
+function anchorPair(sourceEl, targetEl) {
+  const s = relativeRect(sourceEl);
+  const t = relativeRect(targetEl);
+  const sourceCenter = { x: s.left + s.width / 2, y: s.top + s.height / 2 };
+  const targetCenter = { x: t.left + t.width / 2, y: t.top + t.height / 2 };
+  const dx = targetCenter.x - sourceCenter.x;
+  const dy = targetCenter.y - sourceCenter.y;
+  if (Math.abs(dx) >= Math.abs(dy)) {
+    return dx >= 0
+      ? { source: { x: s.left + s.width, y: sourceCenter.y }, target: { x: t.left, y: targetCenter.y } }
+      : { source: { x: s.left, y: sourceCenter.y }, target: { x: t.left + t.width, y: targetCenter.y } };
+  }
+  return dy >= 0
+    ? { source: { x: sourceCenter.x, y: s.top + s.height }, target: { x: targetCenter.x, y: t.top } }
+    : { source: { x: sourceCenter.x, y: s.top }, target: { x: targetCenter.x, y: t.top + t.height } };
+}
+
+function graphNodeElement(id) {
+  return els.board.querySelector(`[data-graph-node="${cssEscape(id)}"]`);
+}
+
+function childElement(id) {
+  return els.board.querySelector(`[data-child-id="${cssEscape(id)}"]`);
+}
+
+function relativeRect(el) {
+  const viewport = els.viewport.getBoundingClientRect();
+  const rect = el.getBoundingClientRect();
+  return {
+    left: rect.left - viewport.left + els.viewport.scrollLeft,
+    top: rect.top - viewport.top + els.viewport.scrollTop,
+    width: rect.width,
+    height: rect.height,
+  };
+}
+
+function rightMiddle(el) {
+  const r = relativeRect(el);
+  return { x: r.left + r.width, y: r.top + r.height / 2 };
+}
+
+function leftMiddle(el) {
+  const r = relativeRect(el);
+  return { x: r.left, y: r.top + r.height / 2 };
+}
+
+function renderGraphDetail() {
+  const selectedField = selectedGraphField();
+  if (selectedField) {
+    renderFieldProfile(selectedField);
+    return;
+  }
+
+  const selectedEdge = selectedGraphEdge();
+  if (selectedEdge) {
+    els.graphDetailBadge.textContent = "Edge";
+    els.graphDetailBadge.style.background = "#eef2f7";
+    els.graphDetailBadge.style.color = "#475467";
+    els.graphDetailTitle.textContent = selectedEdge.type;
+    els.graphDetailDescription.textContent = selectedEdge.description || "No edge description.";
+    els.graphDetailBody.innerHTML = `
+      <section class="detail-section">
+        <h3>Relationship</h3>
+        ${kv("Type", selectedEdge.type)}
+        ${kv("Source", `${label(selectedEdge.source)} (${selectedEdge.sourceOriginal})`)}
+        ${kv("Target", `${label(selectedEdge.target)} (${selectedEdge.targetOriginal})`)}
+        ${kv("Description", selectedEdge.description || "No description.")}
+      </section>
+      ${renderConstraints(selectedEdge.constraints, "Relationship Constraints")}
+      <section class="detail-section">
+        <h3>Raw Edge</h3>
+        <pre class="raw-block">${escapeHtml(JSON.stringify(selectedEdge.raw, null, 2))}</pre>
+      </section>
+    `;
+    return;
+  }
+
+  const focus = node(graphState.focusId);
+  const data = raw(graphState.focusId);
+  els.graphDetailBadge.textContent = typeName(focus?.type);
+  els.graphDetailBadge.style.background = `${colorFor(focus?.type)}18`;
+  els.graphDetailBadge.style.color = colorFor(focus?.type);
+  els.graphDetailTitle.textContent = label(graphState.focusId);
+  els.graphDetailDescription.textContent = description(graphState.focusId) || "No description.";
+  els.graphDetailBody.innerHTML = renderNodeDetail(focus, data, false);
+}
+
+function selectedGraphField() {
+  if (!graphState.selectedFieldId) return null;
+  const parentId = parentOf(graphState.selectedFieldId);
+  const item = childItems(parentId).find(child => child.id === graphState.selectedFieldId);
+  return item ? { ...item, parentId } : null;
+}
+
+function renderFieldProfile(field) {
+  const relationships = [...parentEdges(), ...childEdges()]
+    .filter(edge => edge.sourceOriginal === field.id || edge.targetOriginal === field.id || edge.source === field.id || edge.target === field.id);
+  els.graphDetailBadge.textContent = typeName(field.type);
+  els.graphDetailBadge.style.background = `${colorFor(field.type)}18`;
+  els.graphDetailBadge.style.color = colorFor(field.type);
+  els.graphDetailTitle.textContent = field.name;
+  els.graphDetailDescription.textContent = field.description || field.id;
+  els.graphDetailBody.innerHTML = `
+    <section class="detail-section">
+      <h3>Field / Property</h3>
+      ${kv("ID", field.id)}
+      ${kv("Parent", `${label(field.parentId)} (${field.parentId})`)}
+      ${kv("Type", typeName(field.type))}
+      ${field.description ? kv("Description", field.description) : ""}
+      ${field.dataType ? kv("Data Type", field.dataType) : ""}
+      ${field.nullable !== undefined && field.nullable !== "" ? kv("Nullable", String(field.nullable)) : ""}
+      ${field.semanticRole ? kv("Semantic Role", field.semanticRole) : ""}
+      ${field.term ? kv("Term", field.term) : ""}
+    </section>
+    ${field.mapsTo?.length ? `
+      <section class="detail-section">
+        <h3>Mappings</h3>
+        <div class="mini-list">${field.mapsTo.map(target => `<div class="mini-card"><strong>${escapeHtml(target)}</strong></div>`).join("")}</div>
+      </section>
+    ` : ""}
+    ${field.constraints?.length ? `
+      <section class="detail-section">
+        <h3>Constraints</h3>
+        <div class="mini-list">${field.constraints.map(renderConstraintCard).join("")}</div>
+      </section>
+    ` : ""}
+    ${field.lineage ? `
+      <section class="detail-section">
+        <h3>Lineage</h3>
+        <pre class="raw-block">${escapeHtml(JSON.stringify(field.lineage, null, 2))}</pre>
+      </section>
+    ` : ""}
+    <section class="detail-section">
       <h3>Relationships</h3>
-      ${profileRelationsFor(selected).slice(0, 14).map(relationRow).join("") || empty("No relationships.")}
-    </div>
-    <div class="profile-section">
-      <h3>Fields & Checks</h3>
-      ${datasetTypes.has(node.type) ? `<button data-action="toggle-expand" data-id="${escapeAttr(node.id)}">${expanded.has(node.id) ? "Hide columns" : "Expand columns"}</button>` : ""}
-      ${fieldGroups(data).map(renderFieldGroup).join("") || empty("No fields or checks.")}
-    </div>
+      ${relationships.length ? `<div class="mini-list">${relationships.map(renderFieldRelationCard).join("")}</div>` : `<div class="empty-state">No field-level relationships are visible for this field.</div>`}
+    </section>
+    <section class="detail-section">
+      <h3>Raw Field</h3>
+      <pre class="raw-block">${escapeHtml(JSON.stringify(field.raw || field, null, 2))}</pre>
+    </section>
   `;
-  wireClicks(profileBodyEl);
 }
 
-function renderFieldProfile(node) {
-  const parentId = parentOf(node.id);
-  const semantic = fieldSemanticLinks(node.id);
-  const lineage = fieldLineageLinks(node.id);
-  const quality = fieldQualityLinks(node.id);
-  profileBodyEl.innerHTML = `
-    <div class="profile-section">
-      <button class="primary" data-action="asset" data-id="${escapeAttr(node.id)}">Open Asset Profile</button>
-    </div>
-    <div class="profile-section">
-      <h3>Field Meaning</h3>
-      <div class="profile-card">
-        ${kv("Field ID", node.id)}
-        ${kv("Data Type", node.properties?.data_type || "Unknown")}
-        ${kv("Description", node.properties?.description || "No field description.")}
-      </div>
-    </div>
-    <div class="profile-section">
-      <h3>Parent Asset</h3>
-      ${connectedTile(nodeById(parentId))}
-    </div>
-    <div class="profile-section">
-      <h3>Semantic Mapping</h3>
-      ${semantic.map(fieldLinkRow).join("") || empty("No term/object mapping.")}
-    </div>
-    <div class="profile-section">
-      <h3>Field-Level Lineage</h3>
-      ${lineage.map(fieldLinkRow).join("") || empty("No field-level lineage.")}
-    </div>
-    <div class="profile-section">
-      <h3>Quality</h3>
-      ${quality.map(fieldLinkRow).join("") || empty("No field-level quality checks.")}
-    </div>
-  `;
-  wireClicks(profileBodyEl);
-}
-
-function fieldLinkRow(row) {
+function renderFieldRelationCard(edge) {
+  const other = edge.sourceOriginal === graphState.selectedFieldId || edge.source === graphState.selectedFieldId
+    ? edge.targetOriginal
+    : edge.sourceOriginal;
   return `
-    <div class="relation-row" data-id="${escapeAttr(row.id)}">
-      <div class="relation-top">
-        ${badge(row.type)}
-        <span>${escapeHtml(row.direction ? `${row.direction} · ${row.relation}` : row.relation)}</span>
-      </div>
-      <strong>${escapeHtml(row.label || labelOf(row.id))}</strong>
-      <small>${escapeHtml(row.description || row.id)}</small>
+    <div class="mini-card" data-mini-edge="${escapeAttr(edge.id)}">
+      <span class="edge-pill">${escapeHtml(edge.type)}</span>
+      <strong>${escapeHtml(other || "")}</strong>
+      ${edge.description ? `<p>${escapeHtml(edge.description)}</p>` : ""}
     </div>
   `;
 }
 
-function overviewKv(node, data) {
-  return [
-    kv("ID", node.id),
-    kv("Type", typeLabel[node.type] || node.type),
-    data.schema ? kv("Schema", data.schema) : "",
-    data.location ? kv("Location", data.location) : "",
-    data.path ? kv("Path", data.path) : "",
-    data.platform ? kv("Platform", data.platform) : "",
-    data.schedule ? kv("Schedule", data.schedule) : "",
-    data._source_file ? kv("YAML", data._source_file) : "",
-  ].join("");
-}
-
-function governanceKv(data) {
-  return [
-    kv("Owner", data.owner || "Not assigned"),
-    kv("Domain", data.domain || "Not assigned"),
-    kv("Verified", data.verified?.status === true ? "Yes" : "Not marked"),
-    kv("Tags", Array.isArray(data.tags) ? data.tags.join(", ") : "None"),
-  ].join("");
-}
-
-function fieldGroups(data) {
-  return [
-    ["Columns", data.columns],
-    ["Parameters", data.parameters],
-    ["Returns", data.returns],
-    ["Fields", data.fields],
-    ["Quality Checks", data.quality_checks],
-  ].filter(([, rows]) => Array.isArray(rows) && rows.length);
-}
-
-function renderFieldGroup([title, rows]) {
+function renderConstraints(constraints, title = "Constraints") {
+  const rows = Array.isArray(constraints) ? constraints.filter(Boolean) : [];
+  if (!rows.length) return "";
   return `
-    <div class="table-box" style="margin-bottom:12px">
-      <div class="table-row"><span>${escapeHtml(title)}</span><span>Type</span><span>Rule</span></div>
-      ${rows.map(row => `
-        <div class="table-row">
-          <span>${escapeHtml(row.name || row.id || row.check_type || "item")}</span>
-          <span>${escapeHtml(row.data_type || row.check_type || "")}</span>
-          <small>${escapeHtml(row.expectation || row.description || (row.nullable === false ? "not nullable" : ""))}</small>
+    <section class="detail-section">
+      <h3>${escapeHtml(title)}</h3>
+      <div class="mini-list">${rows.map(renderConstraintCard).join("")}</div>
+    </section>
+  `;
+}
+
+function renderConstraintCard(item) {
+  return `
+    <div class="mini-card constraint-card">
+      <strong>${escapeHtml(item.type || "constraint")}</strong>
+      ${item.severity ? `<small>${escapeHtml(item.severity)}</small>` : ""}
+      ${item.description ? `<p>${escapeHtml(item.description)}</p>` : ""}
+      ${item.expression ? `<p><code>${escapeHtml(item.expression)}</code></p>` : ""}
+      ${item.fields?.length ? `<p>${escapeHtml(item.fields.join(", "))}</p>` : ""}
+    </div>
+  `;
+}
+
+function selectedGraphEdge() {
+  if (!graphState.selectedEdgeId) return null;
+  const visible = [...parentEdges(), ...childEdges()].find(edge => edge.id === graphState.selectedEdgeId);
+  if (visible) return visible;
+  const rawEdge = graphEdge(graphState.selectedEdgeId);
+  return rawEdge ? normalizedEdge(rawEdge) : null;
+}
+
+function selectGraphEdge(edge) {
+  graphState.selectedEdgeId = edge.id;
+  graphState.selectedFieldId = null;
+  renderGraphDetail();
+  allEdgeElements().forEach(item => {
+    item.classList.toggle("selected", item.dataset.graphEdge === edge.id);
+  });
+}
+
+function selectGraphField(fieldId) {
+  graphState.selectedFieldId = fieldId;
+  graphState.selectedEdgeId = null;
+  renderGraphDetail();
+  els.board.querySelectorAll(".field-row").forEach(item => {
+    item.classList.toggle("selected", item.dataset.childId === fieldId);
+  });
+  allEdgeElements().forEach(item => {
+    item.classList.remove("selected");
+  });
+}
+
+function allEdgeElements() {
+  return [...els.edgeLayer.querySelectorAll(".edge-path, .edge-label, .edge-hit"), ...els.fieldEdgeLayer.querySelectorAll(".edge-path, .edge-label, .edge-hit")];
+}
+
+function childItems(parentId) {
+  const generated = graph.nodes
+    .filter(item => parentOf(item.id) === parentId && childTypes.has(item.type))
+    .map(item => ({
+      id: item.id,
+      name: item.label,
+      type: item.type,
+      dataType: item.properties?.data_type || "",
+      description: item.properties?.description || "",
+      semanticRole: item.properties?.semantic_role || "",
+      term: item.properties?.term || "",
+      raw: item.properties || {},
+    }));
+  const data = raw(parentId);
+  const inlineColumns = (data.columns || []).map(col => ({
+    id: col.id || columnId(parentId, col.name),
+    name: col.name,
+    type: "column",
+    dataType: col.data_type || "",
+    description: col.description || "",
+    term: col.term || "",
+    nullable: col.nullable,
+    lineage: col.lineage,
+    raw: col,
+  }));
+  const inlineProperties = (data.properties || []).map(prop => ({
+    id: `${parentId}.${prop.name}`,
+    name: prop.name,
+    type: "business_entity_property",
+    description: prop.description || "",
+    semanticRole: prop.semantic_role || "",
+    term: prop.term || "",
+    mapsTo: prop.maps_to || [],
+    constraints: prop.constraints || [],
+    raw: prop,
+  }));
+  const byId = new Map();
+  [...generated, ...inlineColumns, ...inlineProperties].forEach(item => {
+    if (!item.name) return;
+    byId.set(item.id, { ...(byId.get(item.id) || {}), ...item });
+  });
+  return [...byId.values()].sort((a, b) => a.name.localeCompare(b.name));
+}
+
+function columnId(parentId, name) {
+  if (parentId.startsWith("table.")) return `column.${parentId.slice("table.".length)}.${name}`;
+  if (parentId.startsWith("view.")) return `column.${parentId.slice("view.".length)}.${name}`;
+  return `${parentId}.${name}`;
+}
+
+function renderFieldTable(children) {
+  return `
+    <div class="field-table">
+      ${children.map(item => `
+        <div class="field-table-row">
+          <div>
+            <strong>${escapeHtml(item.name)}</strong>
+            <small>${escapeHtml(item.description || item.term || item.id)}</small>
+          </div>
+          <span class="muted">${escapeHtml(item.semanticRole || item.dataType || typeName(item.type))}</span>
         </div>
       `).join("")}
     </div>
   `;
 }
 
-function lineageViewNodes(focusId) {
-  const ids = new Set();
-  const focus = nodeById(focusId);
-  const seedIds = dataAssetTypes.has(focus?.type)
-    ? [parentOf(focusId)]
-    : collectRelatedByTypes(focusId, dataAssetTypes).map(node => node.id);
-  const queue = [...new Set(seedIds)];
-  queue.forEach(id => ids.add(id));
-
-  while (queue.length) {
-    const current = queue.shift();
-    for (const edge of graph.edges) {
-      if (!lineageTypes.has(edge.type)) continue;
-      const source = parentOf(edge.source);
-      const target = parentOf(edge.target);
-      if (source !== current && target !== current && edge.source !== current && edge.target !== current) continue;
-      [source, target].forEach(id => {
-        const node = nodeById(id);
-        if (!node || childTypes.has(node.type)) return;
-        if (!ids.has(id)) {
-          ids.add(id);
-          queue.push(id);
-        }
-      });
-    }
-  }
-
-  graph.nodes.forEach(node => {
-    if (childTypes.has(node.type) && expanded.has(parentOf(node.id))) ids.add(node.id);
-  });
-
-  return [...ids].map(nodeById).filter(Boolean).filter(node => dataAssetTypes.has(node.type));
-}
-
-function visibleGraphEdges(nodes, predicate) {
-  const ids = new Set(nodes.map(node => node.id));
-  const grouped = new Map();
-  for (const edge of graph.edges) {
-    if (!predicate(edge)) continue;
-    let source = edge.source;
-    let target = edge.target;
-    if (!ids.has(source)) source = parentOf(source);
-    if (!ids.has(target)) target = parentOf(target);
-    if (source === target || !ids.has(source) || !ids.has(target)) continue;
-    const key = `${source}|${target}|${edge.type}`;
-    const item = grouped.get(key) || { id: key, source, target, type: edge.type, count: 0, descriptions: [] };
-    item.count += 1;
-    if (edge.properties?.description) item.descriptions.push(edge.properties.description);
-    grouped.set(key, item);
-  }
-  return [...grouped.values()];
-}
-
-function renderGraph(nodes, edges) {
-  const board = document.getElementById("graphBoard");
-  const edgeLayer = document.getElementById("edgeLayer");
-  if (!board || !edgeLayer) return;
-  const pos = graphLayout(nodes);
-  board.innerHTML = "";
-  edgeLayer.innerHTML = "";
-
-  lanes.forEach((lane, index) => {
-    const title = document.createElement("div");
-    title.className = "lane-title";
-    title.style.left = `${28 + index * 240}px`;
-    title.textContent = lane.title;
-    board.appendChild(title);
-  });
-
-  edges.forEach(edge => {
-    const a = pos[edge.source];
-    const b = pos[edge.target];
-    if (!a || !b) return;
-    const ax = a.x + 178;
-    const ay = a.y + 32;
-    const bx = b.x;
-    const by = b.y + 32;
-    const mid = Math.max(36, Math.abs(bx - ax) / 2);
-    const d = `M ${ax} ${ay} C ${ax + mid} ${ay}, ${bx - mid} ${by}, ${bx} ${by}`;
-
-    const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
-    const active = selectedEdge?.id === edge.id || edge.source === selected || edge.target === selected;
-    path.setAttribute("class", "edge-path");
-    path.setAttribute("d", d);
-    path.setAttribute("fill", "none");
-    path.setAttribute("stroke", active ? "#2563eb" : "#98a2b3");
-    path.setAttribute("stroke-width", active ? "2.2" : "1.3");
-    path.setAttribute("opacity", active ? ".9" : ".48");
-    path.addEventListener("click", () => selectEdge(edge));
-    edgeLayer.appendChild(path);
-
-    const label = document.createElementNS("http://www.w3.org/2000/svg", "text");
-    label.setAttribute("class", "edge-label");
-    label.setAttribute("x", (ax + bx) / 2);
-    label.setAttribute("y", (ay + by) / 2 - 4);
-    label.setAttribute("text-anchor", "middle");
-    label.textContent = edge.count > 1 ? `${edge.type} x${edge.count}` : edge.type;
-    label.addEventListener("click", () => selectEdge(edge));
-    edgeLayer.appendChild(label);
-  });
-
-  nodes.forEach(node => {
-    const p = pos[node.id];
-    if (!p) return;
-    const card = document.createElement("div");
-    const child = childTypes.has(node.type);
-    card.className = `node-card ${child ? "child-node" : ""} ${node.id === selected ? "selected" : ""}`;
-    card.style.left = `${p.x}px`;
-    card.style.top = `${p.y}px`;
-    card.dataset.id = node.id;
-    card.innerHTML = `
-      <div class="node-top">
-        <span class="node-dot" style="background:${color[node.type] || "#64748b"}"></span>
-        <div class="node-label">${escapeHtml(node.label)}</div>
-      </div>
-      <div class="node-desc">${escapeHtml(node.properties?.description || node.id)}</div>
-    `;
-    board.appendChild(card);
-  });
-}
-
-function semanticGraphModel(focusId) {
-  const focus = nodeById(focusId) || nodeById("scenario.margin_booking_settlement");
-  const ids = new Set();
-  const semanticNodeTypes = new Set(["scenario", "term", "object", "quality_check"]);
-  const semanticEdgeTypes = new Set(["related_to", "contains_scenario", "checks", "validates"]);
-
-  graph.nodes.forEach(node => {
-    if (semanticTypes.has(node.type)) ids.add(node.id);
-  });
-
-  if (focus) ids.add(parentOf(focus.id));
-
-  relatedFor(focus?.id || selected).forEach(rel => {
-    const node = nodeById(rel.otherId);
-    if (!node) return;
-    if (semanticNodeTypes.has(node.type) || dataAssetTypes.has(node.type)) ids.add(node.id);
-  });
-
-  graph.edges.forEach(edge => {
-    if (!semanticEdgeTypes.has(edge.type) && !["reads", "writes", "serves", "consumes"].includes(edge.type)) return;
-    const source = parentOf(edge.source);
-    const target = parentOf(edge.target);
-    if (ids.has(source) || ids.has(target)) {
-      if (semanticTypes.has(typeOf(source)) || dataAssetTypes.has(typeOf(source))) ids.add(source);
-      if (semanticTypes.has(typeOf(target)) || dataAssetTypes.has(typeOf(target))) ids.add(target);
-    }
-  });
-
-  graph.edges.forEach(edge => {
-    if (edge.type !== "checks") return;
-    const checkedAsset = parentOf(edge.target);
-    if (ids.has(checkedAsset) || ids.has(edge.target) || focus?.id === checkedAsset || focus?.id === edge.target) {
-      ids.add(edge.source);
-      ids.add(checkedAsset);
-    }
-  });
-
-  const nodes = [...ids]
-    .map(nodeById)
-    .filter(Boolean)
-    .filter(node => semanticNodeTypes.has(node.type) || dataAssetTypes.has(node.type))
-    .slice(0, 80);
-  const nodeIds = new Set(nodes.map(node => node.id));
-  const edges = visibleSemanticEdges(nodeIds, semanticEdgeTypes);
-
-  return { nodes, edges };
-}
-
-function visibleSemanticEdges(nodeIds, allowedTypes) {
-  const grouped = new Map();
-  for (const edge of graph.edges) {
-    if (!allowedTypes.has(edge.type)) continue;
-    const sourceType = typeOf(edge.source);
-    const targetType = typeOf(edge.target);
-    const source = sourceType === "quality_check" ? edge.source : parentOf(edge.source);
-    const target = targetType === "quality_check" ? edge.target : parentOf(edge.target);
-    if (source === target || !nodeIds.has(source) || !nodeIds.has(target)) continue;
-    const key = `${source}|${target}|${edge.type}`;
-    const item = grouped.get(key) || { id: key, source, target, type: edge.type, count: 0, descriptions: [] };
-    item.count += 1;
-    if (edge.properties?.description) item.descriptions.push(edge.properties.description);
-    grouped.set(key, item);
-  }
-  return [...grouped.values()];
-}
-
-function renderSemanticGraph(nodes, edges) {
-  const board = document.getElementById("semanticGraphBoard");
-  const edgeLayer = document.getElementById("semanticEdgeLayer");
-  if (!board || !edgeLayer) return;
-  const pos = semanticGraphLayout(nodes);
-  board.innerHTML = "";
-  edgeLayer.innerHTML = "";
-
-  semanticLanes().forEach((lane, index) => {
-    const title = document.createElement("div");
-    title.className = "lane-title";
-    title.style.left = `${28 + index * 220}px`;
-    title.textContent = lane.title;
-    board.appendChild(title);
-  });
-
-  edges.forEach(edge => {
-    const a = pos[edge.source];
-    const b = pos[edge.target];
-    if (!a || !b) return;
-    const ax = a.x + 178;
-    const ay = a.y + 32;
-    const bx = b.x;
-    const by = b.y + 32;
-    const mid = Math.max(36, Math.abs(bx - ax) / 2);
-    const d = `M ${ax} ${ay} C ${ax + mid} ${ay}, ${bx - mid} ${by}, ${bx} ${by}`;
-
-    const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
-    const active = selectedEdge?.id === edge.id || edge.source === selected || edge.target === selected;
-    path.setAttribute("class", "edge-path");
-    path.setAttribute("d", d);
-    path.setAttribute("fill", "none");
-    path.setAttribute("stroke", active ? "#2563eb" : "#98a2b3");
-    path.setAttribute("stroke-width", active ? "2.2" : "1.3");
-    path.setAttribute("opacity", active ? ".9" : ".52");
-    path.addEventListener("click", () => selectEdge(edge));
-    edgeLayer.appendChild(path);
-
-    const label = document.createElementNS("http://www.w3.org/2000/svg", "text");
-    label.setAttribute("class", "edge-label");
-    label.setAttribute("x", (ax + bx) / 2);
-    label.setAttribute("y", (ay + by) / 2 - 4);
-    label.setAttribute("text-anchor", "middle");
-    label.textContent = edge.count > 1 ? `${edge.type} x${edge.count}` : edge.type;
-    label.addEventListener("click", () => selectEdge(edge));
-    edgeLayer.appendChild(label);
-  });
-
-  nodes.forEach(node => {
-    const p = pos[node.id];
-    if (!p) return;
-    const card = document.createElement("div");
-    card.className = `node-card semantic-node-card ${node.id === selected ? "selected" : ""}`;
-    card.style.left = `${p.x}px`;
-    card.style.top = `${p.y}px`;
-    card.dataset.id = node.id;
-    card.innerHTML = `
-      <div class="node-top">
-        <span class="node-dot" style="background:${color[node.type] || "#64748b"}"></span>
-        <div class="node-label">${escapeHtml(node.label)}</div>
-      </div>
-      <div class="node-desc">${escapeHtml(typeLabel[node.type] || node.type)}</div>
-    `;
-    board.appendChild(card);
-  });
-}
-
-function semanticLanes() {
-  return [
-    { title: "Scenario", types: ["scenario"] },
-    { title: "Term", types: ["term"] },
-    { title: "Object", types: ["object"] },
-    { title: "Quality", types: ["quality_check"] },
-    { title: "Asset", types: ["feedfile", "pipeline", "table", "view", "api", "dashboard"] },
-  ];
-}
-
-function semanticGraphLayout(nodes) {
-  const pos = {};
-  semanticLanes().forEach((lane, laneIndex) => {
-    const x = 28 + laneIndex * 220;
-    const laneNodes = nodes.filter(node => lane.types.includes(node.type));
-    laneNodes.sort((a, b) => a.label.localeCompare(b.label));
-    laneNodes.forEach((node, itemIndex) => {
-      pos[node.id] = { x, y: 62 + itemIndex * 86 };
-    });
-  });
-  return pos;
-}
-
-function businessContextModel(mainScenarioId) {
-  const mainData = raw(mainScenarioId);
-  const flowIds = scenarioFlowIds(mainData).filter(id => id !== mainScenarioId);
-  const visualNodes = [];
-  const positions = {};
-  const groups = [];
-  const scenarioPanels = [];
-  const innerClusters = [];
-  const panelEdges = (mainData.scenario_flow || []).map(flow => ({
-    id: `scenario-flow|${flow.source}|${flow.target}|${flow.relation || "precedes"}`,
-    sourceScenario: flow.source,
-    targetScenario: flow.target,
-    type: flow.relation || "precedes",
-    description: flow.description || "",
-  }));
-
-  const panelWidth = 1168;
-  const panelHeight = 470;
-  const panelGapY = 40;
-  const startX = 46;
-  const startY = 96;
-  const clusterY = 126;
-  const topClusterH = 178;
-  const qualityClusterY = 320;
-  const qualityClusterH = 112;
-  const clusterDefs = [
-    { key: "logic", title: "Business Logic", subtitle: "Rules and decisions", x: 18, y: clusterY, w: 258, h: topClusterH },
-    { key: "term", title: "Terms", subtitle: "Meaning and status", x: 288, y: clusterY, w: 176, h: topClusterH },
-    { key: "object", title: "Objects", subtitle: "Business entities", x: 476, y: clusterY, w: 210, h: topClusterH },
-    { key: "asset", title: "Implementation", subtitle: "Assets that realize objects", x: 698, y: clusterY, w: 452, h: topClusterH },
-    { key: "quality", title: "Quality Safeguards", subtitle: "Checks that validate business meaning and implementation", x: 18, y: qualityClusterY, w: 1132, h: qualityClusterH },
-  ];
-
-  function addVisual(group, originalId, node, x, y) {
-    const index = group.items.length;
-    const visual = {
-      id: `${group.scenarioId}::${originalId}::${index}`,
-      originalId,
-      scenarioId: group.scenarioId,
-      node,
-    };
-    visualNodes.push(visual);
-    group.items.push(visual);
-    group.byOriginal[originalId] ||= [];
-    group.byOriginal[originalId].push(visual.id);
-    positions[visual.id] = { x, y };
-  }
-
-  flowIds.forEach((scenarioId, index) => {
-    const scenario = nodeById(scenarioId);
-    if (!scenario) return;
-    const data = raw(scenarioId);
-    const x = startX;
-    const y = startY + index * (panelHeight + panelGapY);
-    const group = { scenarioId, items: [], byOriginal: {}, clusterByKey: {} };
-    groups.push(group);
-    const scenarioAnchorId = `${scenarioId}::__scenario`;
-    group.scenarioAnchor = scenarioAnchorId;
-    group.byOriginal[scenarioId] = [scenarioAnchorId];
-    positions[scenarioAnchorId] = { x: x + 84, y: y + 74 };
-
-    scenarioPanels.push({
-      title: `${index + 1}. ${scenario.label}`,
-      subtitle: scenario.properties?.description || data.description || "Sub-scenario",
-      nodeId: scenarioId,
-      x,
-      y,
-      w: panelWidth,
-      h: panelHeight,
-      className: "sub-scenario-cluster",
-    });
-
-    clusterDefs.forEach(def => {
-      const cluster = {
-        title: def.title,
-        subtitle: def.subtitle,
-        x: x + def.x,
-        y: y + def.y,
-        w: def.w,
-        h: def.h,
-        className: "semantic-stage-cluster",
-      };
-      innerClusters.push(cluster);
-      group.clusterByKey[def.key] = cluster;
-    });
-
-    const logicItems = (data.business_logic || []).map((item, logicIndex) => ({
-      id: `${scenarioId}.logic.${logicIndex + 1}`,
-      type: "business_logic",
-      label: item.name || item,
-      properties: { description: item.description || item.name || item, scenarioId },
-    }));
-    logicItems.forEach((node, itemIndex) => {
-      const cluster = group.clusterByKey.logic;
-      addVisual(group, node.id, node, cluster.x + 14, cluster.y + 48 + itemIndex * 58);
-    });
-
-    const objects = collectRelatedByTypes(scenarioId, new Set(["object"]));
-    const terms = collectRelatedByTypes(scenarioId, new Set(["term"]));
-    const assets = collectRelatedByTypes(scenarioId, dataAssetTypes).filter(node => !childTypes.has(node.type));
-    const semanticIds = new Set([scenarioId, ...objects.map(node => node.id), ...terms.map(node => node.id)]);
-    const qualityIds = new Set();
-    graph.edges.forEach(edge => {
-      if (edge.type === "validates" && semanticIds.has(edge.target)) qualityIds.add(edge.source);
-      if (edge.type === "checks" && assets.some(asset => parentOf(edge.target) === asset.id || edge.target === asset.id)) qualityIds.add(edge.source);
-    });
-    const qualityNodes = [...qualityIds].map(nodeById).filter(Boolean);
-
-    [
-      ["object", objects],
-      ["term", terms],
-      ["asset", assets],
-      ["quality", qualityNodes],
-    ].forEach(([key, nodes]) => {
-      const cluster = group.clusterByKey[key];
-      nodes.slice(0, 5).forEach((node, itemIndex) => {
-        const columns = key === "asset" ? 3 : key === "quality" ? 5 : 1;
-        const xOffset = (itemIndex % columns) * (key === "asset" ? 144 : 216);
-        const yOffset = Math.floor(itemIndex / columns) * 54;
-        addVisual(group, node.id, node, cluster.x + 14 + xOffset, cluster.y + 48 + yOffset);
-      });
-    });
-  });
-
-  const width = startX + panelWidth + 66;
-  const height = Math.max(620, startY + flowIds.length * (panelHeight + panelGapY) + 40);
-
-  return {
-    mainScenarioId,
-    visualNodes,
-    positions,
-    groups,
-    scenarioPanels,
-    innerClusters,
-    panelEdges,
-    width,
-    height,
-    logicCount: visualNodes.filter(visual => visual.node.type === "business_logic").length,
-    objectCount: visualNodes.filter(visual => visual.node.type === "object").length,
-    qualityCount: visualNodes.filter(visual => visual.node.type === "quality_check").length,
-  };
-}
-
-function renderBusinessContextMap(model) {
-  const board = document.getElementById("semanticGraphBoard");
-  const edgeLayer = document.getElementById("semanticEdgeLayer");
-  if (!board || !edgeLayer) return;
-  board.innerHTML = "";
-  edgeLayer.innerHTML = "";
-  board.style.width = `${model.width}px`;
-  board.style.height = `${model.height}px`;
-  edgeLayer.style.width = `${model.width}px`;
-  edgeLayer.style.height = `${model.height}px`;
-  edgeLayer.setAttribute("width", model.width);
-  edgeLayer.setAttribute("height", model.height);
-
-  const clusters = [
-    {
-      title: labelOf(model.mainScenarioId),
-      subtitle: "Parent scenario containing business context for each sub-scenario",
-      nodeId: model.mainScenarioId,
-      x: 20,
-      y: 20,
-      w: model.width - 40,
-      h: model.height - 60,
-      className: "parent-scenario-cluster",
-    },
-    ...model.scenarioPanels,
-    ...model.innerClusters,
-  ];
-
-  clusters.forEach(cluster => {
-    const box = document.createElement("div");
-    const isScenarioFrame = ["parent-scenario-cluster", "sub-scenario-cluster"].includes(cluster.className);
-    box.className = `graph-cluster ${cluster.className || ""} ${isScenarioFrame && cluster.nodeId === selected ? "selected" : ""}`;
-    box.style.left = `${cluster.x}px`;
-    box.style.top = `${cluster.y}px`;
-    box.style.width = `${cluster.w}px`;
-    box.style.height = `${cluster.h}px`;
-    if (cluster.nodeId) box.dataset.id = cluster.nodeId;
-    box.innerHTML = cluster.nodeId
-      ? `<div class="cluster-hit" data-id="${escapeAttr(cluster.nodeId)}"><strong>${escapeHtml(cluster.title)}</strong><span>${escapeHtml(cluster.subtitle)}</span></div>`
-      : `<strong>${escapeHtml(cluster.title)}</strong><span>${escapeHtml(cluster.subtitle)}</span>`;
-    board.appendChild(box);
-  });
-
-  const panelPos = Object.fromEntries(model.scenarioPanels.map(panel => [panel.nodeId, panel]));
-  model.panelEdges.forEach(edge => {
-    const a = panelPos[edge.sourceScenario];
-    const b = panelPos[edge.targetScenario];
-    if (!a || !b) return;
-    drawSemanticEdge(edgeLayer, {
-      id: edge.id,
-      source: edge.sourceScenario,
-      target: edge.targetScenario,
-      sourceOriginal: edge.sourceScenario,
-      targetOriginal: edge.targetScenario,
-      type: edge.type,
-      descriptions: edge.description ? [edge.description] : [],
-    }, { x: a.x + a.w / 2, y: a.y + a.h - 18 }, { x: b.x + b.w / 2, y: b.y + 18 }, true);
-  });
-
-  const contextEdges = businessContextEdges(model);
-  contextEdges.forEach(edge => {
-    const a = model.positions[edge.source];
-    const b = model.positions[edge.target];
-    if (!a || !b) return;
-    drawSemanticEdge(edgeLayer, edge, { x: a.x + 132, y: a.y + 25 }, { x: b.x, y: b.y + 25 }, false);
-  });
-  currentBusinessEdges = [...model.panelEdges.map(edge => ({
-    id: edge.id,
-    source: edge.sourceScenario,
-    target: edge.targetScenario,
-    sourceOriginal: edge.sourceScenario,
-    targetOriginal: edge.targetScenario,
-    type: edge.type,
-    descriptions: edge.description ? [edge.description] : [],
-  })), ...contextEdges];
-
-  model.visualNodes.forEach(visual => {
-    const p = model.positions[visual.id];
-    if (!p) return;
-    const node = visual.node;
-    const card = document.createElement("div");
-    card.className = `overview-node semantic-overview-node ${node.type === "business_logic" ? "logic-item" : ""} ${visual.originalId === selected ? "selected" : ""}`;
-    card.style.left = `${p.x}px`;
-    card.style.top = `${p.y}px`;
-    if (node.type === "business_logic") {
-      card.dataset.logicId = visual.originalId;
-      card.dataset.scenarioId = visual.scenarioId;
-      card.dataset.logicTitle = node.label;
-      card.dataset.logicDescription = node.properties?.description || "";
-    } else if (nodeById(visual.originalId)) {
-      card.dataset.id = visual.originalId;
-    }
-    card.dataset.visualId = visual.id;
-    card.innerHTML = `
-      <div class="node-top">
-        <span class="node-dot" style="background:${color[node.type] || "#64748b"}"></span>
-        <div class="node-label">${escapeHtml(node.label)}</div>
-      </div>
-      <div class="node-desc">${escapeHtml(node.type === "business_logic" ? node.properties?.description || "" : typeLabel[node.type] || node.type)}</div>
-    `;
-    board.appendChild(card);
-  });
-}
-
-function businessContextEdges(model) {
-  const grouped = new Map();
-  const structuralSourceFields = new Set([
-    "columns",
-    "fields",
-    "request_fields",
-    "response_fields",
-    "returns",
-    "scenario_flow",
-  ]);
-
-  function isFieldLike(id) {
-    const type = typeOf(id);
-    return type === "column" || type === "api_field" || type === "feedfile_field";
-  }
-
-  function isAsset(id) {
-    const type = typeOf(id);
-    return dataAssetTypes.has(type) && type !== "column";
-  }
-
-  function isBusinessContextCandidate(edge) {
-    const sourceField = edge.properties?.source_field || "";
-    if (edge.type === "contains") return false;
-    if (structuralSourceFields.has(sourceField)) return false;
-    if (sourceField.startsWith("lineage") || sourceField.includes(".lineage")) return false;
-    if (isFieldLike(edge.source) || isFieldLike(edge.target)) return false;
-    return true;
-  }
-
-  model.groups.forEach(group => {
-    graph.edges.forEach(edge => {
-      if (!isBusinessContextCandidate(edge)) return;
-      const sourceOriginal = group.byOriginal[edge.source] ? edge.source : parentOf(edge.source);
-      const targetOriginal = group.byOriginal[edge.target] ? edge.target : parentOf(edge.target);
-      const sourceVisual = group.byOriginal[sourceOriginal]?.[0];
-      const targetVisual = group.byOriginal[targetOriginal]?.[0];
-      if (!sourceVisual || !targetVisual || sourceVisual === targetVisual) return;
-      if (isAsset(sourceOriginal) && isAsset(targetOriginal)) return;
-      const key = `${group.scenarioId}|${sourceVisual}|${targetVisual}|${edge.type}`;
-      const item = grouped.get(key) || {
-        id: key,
-        source: sourceVisual,
-        target: targetVisual,
-        sourceOriginal,
-        targetOriginal,
-        type: edge.type,
-        count: 0,
-        descriptions: [],
-      };
-      item.count += 1;
-      if (edge.properties?.description) item.descriptions.push(edge.properties.description);
-      grouped.set(key, item);
-    });
-  });
-  return [...grouped.values()];
-}
-
-function drawSemanticEdge(edgeLayer, edge, a, b, isPanelEdge) {
-  const mid = Math.max(28, Math.abs(b.x - a.x) / 2);
-  const d = isPanelEdge
-    ? `M ${a.x} ${a.y} C ${a.x} ${a.y + 34}, ${b.x} ${b.y - 34}, ${b.x} ${b.y}`
-    : `M ${a.x} ${a.y} C ${a.x + mid} ${a.y}, ${b.x - mid} ${b.y}, ${b.x} ${b.y}`;
-  const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
-  path.setAttribute("class", "edge-path");
-  path.setAttribute("d", d);
-  path.setAttribute("fill", "none");
-  path.setAttribute("stroke", isPanelEdge ? "#2563eb" : "#98a2b3");
-  path.setAttribute("stroke-width", isPanelEdge ? "1.8" : "1.2");
-  path.setAttribute("opacity", isPanelEdge ? ".7" : ".52");
-  path.dataset.edgeId = edge.id;
-  path.addEventListener("click", () => selectSemanticEdge(edge));
-  edgeLayer.appendChild(path);
-
-  const label = document.createElementNS("http://www.w3.org/2000/svg", "text");
-  label.setAttribute("class", "edge-label");
-  label.setAttribute("x", (a.x + b.x) / 2);
-  label.setAttribute("y", (a.y + b.y) / 2 - 4);
-  label.setAttribute("text-anchor", "middle");
-  label.textContent = edge.type;
-  label.dataset.edgeId = edge.id;
-  label.addEventListener("click", () => selectSemanticEdge(edge));
-  edgeLayer.appendChild(label);
-}
-
-function selectSemanticEdge(edge) {
-  selectedEdge = edge;
-  selectedLogic = null;
-  selected = edge.targetOriginal || edge.target;
-  renderProfile();
-  updateSelectedClasses();
-  highlightSemanticEdge(edge);
-}
-
-function highlightSemanticEdge(edge) {
-  document.querySelectorAll("#semanticEdgeLayer .edge-path, #semanticEdgeLayer .edge-label").forEach(element => {
-    element.classList.toggle("selected", element.dataset.edgeId === edge?.id);
-  });
-  const sourceId = edge?.source;
-  const targetId = edge?.target;
-  const sourceOriginal = edge?.sourceOriginal || edge?.source;
-  const targetOriginal = edge?.targetOriginal || edge?.target;
-  document.querySelectorAll("#semanticGraphBoard .overview-node").forEach(element => {
-    const visualId = element.dataset.visualId;
-    element.classList.toggle("edge-connected", !!edge && (visualId === sourceId || visualId === targetId));
-    if (edge) element.classList.remove("selected");
-  });
-  document.querySelectorAll("#semanticGraphBoard .graph-cluster.parent-scenario-cluster, #semanticGraphBoard .graph-cluster.sub-scenario-cluster").forEach(element => {
-    const id = element.dataset.id;
-    element.classList.toggle("edge-connected", !!edge && (id === sourceOriginal || id === targetOriginal));
-    if (edge) element.classList.remove("selected");
-  });
-}
-
-function selectLogicItem(element) {
-  selectedEdge = null;
-  selectedLogic = {
-    id: element.dataset.logicId,
-    scenarioId: element.dataset.scenarioId,
-    label: element.dataset.logicTitle,
-    description: element.dataset.logicDescription,
-  };
-  selected = selectedLogic.scenarioId;
-  highlightSemanticEdge(null);
-  renderProfile();
-  updateSelectedClasses();
-}
-
-function findRenderedBusinessEdge(sourceId, targetId, type) {
-  return currentBusinessEdges.find(edge => {
-    const source = edge.sourceOriginal || edge.source;
-    const target = edge.targetOriginal || edge.target;
-    return source === sourceId && target === targetId && (!type || edge.type === type);
-  }) || currentBusinessEdges.find(edge => {
-    const source = edge.sourceOriginal || edge.source;
-    const target = edge.targetOriginal || edge.target;
-    return source === targetId && target === sourceId && (!type || edge.type === type);
-  });
-}
-
-function renderCatalogGraph(mainScenarioId) {
-  const board = document.getElementById("overviewGraphBoard");
-  const edgeLayer = document.getElementById("overviewEdgeLayer");
-  if (!board || !edgeLayer || !mainScenarioId) return;
-
-  const mainData = raw(mainScenarioId);
-  const flowIds = scenarioFlowIds(mainData).filter(id => id !== mainScenarioId);
-  const model = catalogScenarioModel(mainScenarioId, flowIds);
-  const nodes = model.visualNodes;
-  const positions = model.positions;
-  const edges = catalogOverviewEdges(model, mainScenarioId);
-
-  board.innerHTML = "";
-  edgeLayer.innerHTML = "";
-  board.style.width = `${model.width}px`;
-  board.style.height = `${model.height}px`;
-  edgeLayer.style.width = `${model.width}px`;
-  edgeLayer.style.height = `${model.height}px`;
-  edgeLayer.setAttribute("width", model.width);
-  edgeLayer.setAttribute("height", model.height);
-
-  const clusters = [
-    {
-      title: labelOf(mainScenarioId),
-      subtitle: "Parent scenario containing sub-scenarios and their local data flow",
-      nodeId: mainScenarioId,
-      x: 20,
-      y: 20,
-      w: model.width - 40,
-      h: model.height - 60,
-      className: "parent-scenario-cluster",
-    },
-    ...model.scenarioPanels,
-    ...model.innerClusters,
-  ];
-
-  clusters.forEach(cluster => {
-    const box = document.createElement("div");
-    const isScenarioFrame = ["parent-scenario-cluster", "sub-scenario-cluster"].includes(cluster.className);
-    box.className = `graph-cluster ${cluster.className || ""} ${isScenarioFrame && cluster.nodeId === selected ? "selected" : ""}`;
-    box.style.left = `${cluster.x}px`;
-    box.style.top = `${cluster.y}px`;
-    box.style.width = `${cluster.w}px`;
-    box.style.height = `${cluster.h}px`;
-    if (cluster.nodeId) box.dataset.id = cluster.nodeId;
-    box.innerHTML = cluster.nodeId
-      ? `<div class="cluster-hit" data-id="${escapeAttr(cluster.nodeId)}"><strong>${escapeHtml(cluster.title)}</strong><span>${escapeHtml(cluster.subtitle)}</span></div>`
-      : `<strong>${escapeHtml(cluster.title)}</strong><span>${escapeHtml(cluster.subtitle)}</span>`;
-    board.appendChild(box);
-  });
-
-  edges.forEach(edge => {
-    const a = positions[edge.source];
-    const b = positions[edge.target];
-    if (!a || !b) return;
-    const ax = a.x + 132;
-    const ay = a.y + 26;
-    const bx = b.x;
-    const by = b.y + 26;
-    const mid = Math.max(28, Math.abs(bx - ax) / 2);
-    const d = `M ${ax} ${ay} C ${ax + mid} ${ay}, ${bx - mid} ${by}, ${bx} ${by}`;
-
-    const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
-    const active = selectedEdge?.id === edge.id || edge.sourceOriginal === selected || edge.targetOriginal === selected;
-    path.setAttribute("class", "edge-path");
-    path.setAttribute("d", d);
-    path.setAttribute("fill", "none");
-    path.setAttribute("stroke", active ? "#2563eb" : "#98a2b3");
-    path.setAttribute("stroke-width", active ? "2.2" : "1.2");
-    path.setAttribute("opacity", active ? ".9" : ".42");
-    path.addEventListener("click", () => {
-      selectedEdge = edge;
-      selected = edge.targetOriginal;
-      render();
-    });
-    edgeLayer.appendChild(path);
-
-    if (selectedEdge?.id === edge.id || edge.important) {
-      const label = document.createElementNS("http://www.w3.org/2000/svg", "text");
-      label.setAttribute("class", "edge-label");
-      label.setAttribute("x", (ax + bx) / 2);
-      label.setAttribute("y", (ay + by) / 2 - 4);
-      label.setAttribute("text-anchor", "middle");
-      label.textContent = edge.type;
-      label.addEventListener("click", () => {
-        selectedEdge = edge;
-        selected = edge.targetOriginal;
-        render();
-      });
-      edgeLayer.appendChild(label);
-    }
-  });
-
-  nodes.forEach(visual => {
-    const node = visual.node;
-    const p = positions[visual.id];
-    if (!p) return;
-    const card = document.createElement("div");
-    card.className = `overview-node ${visual.originalId === selected ? "selected" : ""}`;
-    card.style.left = `${p.x}px`;
-    card.style.top = `${p.y}px`;
-    card.dataset.id = visual.originalId;
-    card.dataset.visualId = visual.id;
-    card.innerHTML = `
-      <div class="node-top">
-        <span class="node-dot" style="background:${color[node.type] || "#64748b"}"></span>
-        <div class="node-label">${escapeHtml(node.label)}</div>
-      </div>
-      <div class="node-desc">${escapeHtml(typeLabel[node.type] || node.type)}</div>
-    `;
-    board.appendChild(card);
-  });
-}
-
-function catalogScenarioModel(mainScenarioId, flowIds) {
-  const visualNodes = [];
-  const pos = {};
-  const groups = [];
-  const scenarioPanels = [];
-  const innerClusters = [];
-  const panelWidth = 1168;
-  const panelHeight = 340;
-  const panelGapY = 36;
-  const startX = 46;
-  const startY = 96;
-  const stageGap = 12;
-  const stageWidth = 178;
-  const stageHeight = 198;
-  const stageStartX = 18;
-  const stageStartY = 120;
-
-  function addVisual(scenarioId, nodeId, x, y, group) {
-    const node = nodeById(nodeId);
-    if (!node) return;
-    const index = group.items.length;
-    const visual = {
-      id: `${scenarioId}::${nodeId}::${index}`,
-      originalId: nodeId,
-      scenarioId,
-      node,
-    };
-    visualNodes.push(visual);
-    group.items.push(visual);
-    group.byOriginal[nodeId] ||= [];
-    group.byOriginal[nodeId].push(visual.id);
-    pos[visual.id] = { x, y };
-  }
-
-  flowIds.forEach((scenarioId, index) => {
-    const scenario = nodeById(scenarioId);
-    if (!scenario) return;
-
-    const x = startX;
-    const y = startY + index * (panelHeight + panelGapY);
-    const group = { scenarioId, items: [], byOriginal: {} };
-    groups.push(group);
-
-    scenarioPanels.push({
-      title: `${index + 1}. ${scenario.label}`,
-      subtitle: scenario.properties?.description || raw(scenarioId).description || "Sub-scenario",
-      nodeId: scenarioId,
-      x,
-      y,
-      w: panelWidth,
-      h: panelHeight,
-      className: "sub-scenario-cluster",
-    });
-
-    const relatedAssetIds = collectRelatedByTypes(scenarioId, dataAssetTypes)
-      .filter(node => !childTypes.has(node.type))
-      .map(node => node.id);
-    const assetIds = [...new Set(relatedAssetIds)]
-      .filter(id => catalogStages.some(stage => stage.key === typeOf(id)));
-
-    catalogStages.forEach((stage, stageIndex) => {
-      const stageX = x + stageStartX + stageIndex * (stageWidth + stageGap);
-      innerClusters.push({
-        title: stage.title,
-        subtitle: stage.subtitle,
-        nodeId: scenarioId,
-        x: stageX,
-        y: y + stageStartY,
-        w: stageWidth,
-        h: stageHeight,
-        className: "catalog-stage-cluster",
-      });
-
-      assetIds
-        .filter(id => typeOf(id) === stage.key)
-        .sort((a, b) => labelOf(a).localeCompare(labelOf(b)))
-        .forEach((id, itemIndex) => {
-          addVisual(scenarioId, id, stageX + 16, y + stageStartY + 46 + itemIndex * 56, group);
-        });
-    });
-  });
-
-  const height = Math.max(620, startY + flowIds.length * (panelHeight + panelGapY) + 40);
-  const width = startX + panelWidth + 66;
-
-  return {
-    visualNodes,
-    positions: pos,
-    groups,
-    scenarioPanels,
-    innerClusters,
-    width,
-    height,
-  };
-}
-
-function catalogOverviewEdges(model, mainScenarioId) {
-  const grouped = new Map();
-  const allowed = new Set(["feeds", "writes", "reads", "produces", "consumes", "serves", "derived_from", "lineage"]);
-
-  model.groups.forEach(group => {
-    graph.edges.forEach(edge => {
-      if (!allowed.has(edge.type)) return;
-      const sourceOriginal = group.byOriginal[edge.source] ? edge.source : parentOf(edge.source);
-      const targetOriginal = group.byOriginal[edge.target] ? edge.target : parentOf(edge.target);
-      const sourceVisual = group.byOriginal[sourceOriginal]?.[0];
-      const targetVisual = group.byOriginal[targetOriginal]?.[0];
-      if (!sourceVisual || !targetVisual || sourceVisual === targetVisual) return;
-      const key = `${group.scenarioId}|${sourceVisual}|${targetVisual}|${edge.type}`;
-      if (!grouped.has(key)) {
-        grouped.set(key, {
-          id: key,
-          source: sourceVisual,
-          target: targetVisual,
-          sourceOriginal,
-          targetOriginal,
-          type: edge.type,
-          important: ["feeds", "writes", "reads", "produces", "consumes", "serves"].includes(edge.type),
-          descriptions: edge.properties?.description ? [edge.properties.description] : [],
-        });
-      }
-    });
-  });
-
-  return [...grouped.values()];
-}
-
-function graphLayout(nodes) {
-  const pos = {};
-  lanes.forEach((lane, laneIndex) => {
-    const x = 28 + laneIndex * 240;
-    const laneNodes = nodes.filter(node => lane.types.includes(node.type));
-    laneNodes.sort((a, b) => a.label.localeCompare(b.label));
-    laneNodes.forEach((node, itemIndex) => {
-      pos[node.id] = { x: x + (childTypes.has(node.type) ? 12 : 0), y: 62 + itemIndex * (childTypes.has(node.type) ? 68 : 96) };
-    });
-  });
-  return pos;
-}
-
-function scenarioFlowIds(data) {
-  if (Array.isArray(data.scenario_flow) && data.scenario_flow.length) {
-    const ids = [];
-    data.scenario_flow.forEach(edge => {
-      if (!ids.includes(edge.source)) ids.push(edge.source);
-      if (!ids.includes(edge.target)) ids.push(edge.target);
-    });
-    return ids;
-  }
-  const children = graph.edges
-    .filter(edge => edge.type === "contains_scenario" && edge.source === selected)
-    .map(edge => edge.target);
-  return children.length ? children : [selected];
-}
-
-function relatedFor(id) {
-  const rows = [];
-  graph.edges.forEach(edge => {
-    const sourceParent = parentOf(edge.source);
-    const targetParent = parentOf(edge.target);
-    const fromSelected = edge.source === id || sourceParent === id;
-    const toSelected = edge.target === id || targetParent === id;
-    if (!fromSelected && !toSelected) return;
-    const otherId = fromSelected ? targetParent : sourceParent;
-    if (otherId === id) return;
-    rows.push({
-      type: edge.type,
-      otherId,
-      otherLabel: labelOf(otherId),
-      description: edge.properties?.description || "",
-      source: sourceParent,
-      target: targetParent,
-    });
-  });
-  return dedupeRelations(rows).slice(0, 40);
-}
-
-function profileRelationsFor(id) {
-  const rows = relatedFor(id);
-  if (page !== "scenario") return rows;
-  return rows.sort((a, b) => {
-    const edgeA = findRenderedBusinessEdge(a.source, a.target, a.type) ? 0 : 1;
-    const edgeB = findRenderedBusinessEdge(b.source, b.target, b.type) ? 0 : 1;
-    return edgeA - edgeB;
-  });
-}
-
-function dedupeRelations(rows) {
-  const seen = new Set();
-  return rows.filter(row => {
-    const key = `${row.type}|${row.otherId}|${row.description}`;
-    if (seen.has(key)) return false;
-    seen.add(key);
-    return true;
-  });
-}
-
-function collectRelatedByTypes(id, types) {
-  const ids = new Set();
-  relatedFor(id).forEach(rel => {
-    const node = nodeById(rel.otherId);
-    if (node && types.has(node.type)) ids.add(node.id);
-  });
-  return [...ids].map(nodeById).filter(Boolean).sort((a, b) => `${a.type}:${a.label}`.localeCompare(`${b.type}:${b.label}`));
-}
-
-function ensureType(id, type) {
-  const node = nodeById(id);
-  if (node?.type === type) return node;
-  return graph.nodes.find(item => item.type === type);
-}
-
-function countByType(nodes) {
-  return nodes.reduce((acc, node) => {
-    acc[node.type] = (acc[node.type] || 0) + 1;
-    return acc;
-  }, {});
-}
-
-function countQualityChecks() {
-  return Object.values(catalog).reduce((total, item) => total + (Array.isArray(item.quality_checks) ? item.quality_checks.length : 0), 0);
-}
-
-function edgeInfo(edge) {
-  const sourceId = edge.sourceOriginal || edge.source;
-  const targetId = edge.targetOriginal || edge.target;
-  return `
-    <div class="profile-card">
-      ${kv("Type", edge.type)}
-      ${kv("Source", `${labelOf(sourceId)} (${sourceId})`)}
-      ${kv("Target", `${labelOf(targetId)} (${targetId})`)}
-      ${edge.count > 1 ? kv("Grouped", `${edge.count} relationships`) : ""}
-      ${kv("Description", edge.descriptions?.[0] || edge.properties?.description || "No description")}
-    </div>
-  `;
-}
-
-function badge(type) {
-  return `<span class="type-badge" style="background:${color[type] || "#2563eb"}18;color:${color[type] || "#2563eb"}">${escapeHtml(typeLabel[type] || type)}</span>`;
+function chip(labelText, active, kind, value) {
+  return `<button class="filter-chip ${active ? "active" : ""}" data-filter-kind="${escapeAttr(kind)}" data-filter-value="${escapeAttr(value)}" type="button">${escapeHtml(labelText)}</button>`;
 }
 
 function kv(key, value) {
   return `<div class="kv"><span>${escapeHtml(key)}</span><strong>${escapeHtml(String(value || ""))}</strong></div>`;
 }
 
-function empty(text) {
-  return `<p class="muted">${escapeHtml(text)}</p>`;
-}
-
-function wireClicks(root) {
-  if (root === profileBodyEl) {
-    root.onclick = event => {
-      const row = event.target.closest?.(".relation-row");
-      if (!row || page !== "scenario") return;
-      const edge = findRenderedBusinessEdge(row.dataset.edgeSource, row.dataset.edgeTarget, row.dataset.edgeType);
-      if (edge) {
-        selectSemanticEdge(edge);
-        event.stopPropagation();
-      }
-    };
+function openPage(page) {
+  const showGraph = page === "graph";
+  els.catalogPage.classList.toggle("hidden", showGraph);
+  els.graphPage.classList.toggle("hidden", !showGraph);
+  els.catalogTab.classList.toggle("active", !showGraph);
+  els.graphTab.classList.toggle("active", showGraph);
+  if (showGraph) {
+    renderGraphPage();
+    fitGraph();
+  } else {
+    renderCatalog();
   }
-
-  root.querySelectorAll("[data-logic-id]").forEach(element => {
-    element.onclick = event => {
-      selectLogicItem(element);
-      event.stopPropagation();
-    };
-  });
-
-  root.querySelectorAll("[data-id]").forEach(element => {
-    element.onclick = event => {
-      const id = element.dataset.id;
-      const action = element.dataset.action;
-      if (action === "toggle-expand") {
-        expanded.has(id) ? expanded.delete(id) : expanded.add(id);
-        page = "lineage";
-        selected = id;
-        render();
-        return;
-      }
-      if (["catalog", "scenario", "fields", "asset", "lineage", "ontology", "quality"].includes(action)) {
-        setPage(action, id);
-        return;
-      }
-      if (nodeById(id)) {
-        if (page === "browse") {
-          selected = id;
-          selectedEdge = null;
-          selectedLogic = null;
-          renderProfile();
-          renderSidebarResults();
-          updateSelectedClasses();
-          event.stopPropagation();
-          return;
-        }
-        if (page === "fields") {
-          selected = id;
-          selectedEdge = null;
-          selectedLogic = null;
-          renderProfile();
-          renderSidebarResults();
-          updateSelectedClasses();
-          event.stopPropagation();
-          return;
-        }
-        if (element.classList.contains("relation-row") && page === "scenario") {
-          const edge = findRenderedBusinessEdge(element.dataset.edgeSource, element.dataset.edgeTarget, element.dataset.edgeType);
-          if (edge) {
-            selectSemanticEdge(edge);
-            event.stopPropagation();
-            return;
-          }
-        }
-        if (page === "catalog") {
-          selected = id;
-          selectedEdge = null;
-          selectedLogic = null;
-          renderProfile();
-          renderSidebarResults();
-          updateSelectedClasses();
-          event.stopPropagation();
-          return;
-        }
-        if (page === "scenario" && typeOf(id) !== "scenario") {
-          selected = id;
-          selectedEdge = null;
-          selectedLogic = null;
-          renderProfile();
-          renderSidebarResults();
-          updateSelectedClasses();
-          return;
-        }
-        selectNode(id, page);
-      }
-      event.stopPropagation();
-    };
-  });
 }
 
-function updateSelectedClasses() {
-  const selectedQualityTargets = typeOf(selected) === "quality_check" ? qualityTargetIds(selected) : new Set();
-  document.querySelectorAll(".asset-item, .tile, .flow-card, .relation-row, .quality-row, .node-card, .overview-node, .field-er-row, .field-asset-box, .quality-chip, .browse-node").forEach(element => {
-    const canSelect = !element.classList.contains("connected-tile");
-    const idSelected = element.dataset.id && element.dataset.id === selected;
-    const logicSelected = element.dataset.logicId && element.dataset.logicId === selectedLogic?.id;
-    const qualityTargetSelected = element.dataset.id && selectedQualityTargets.has(element.dataset.id);
-    element.classList.toggle("selected", Boolean(canSelect && (idSelected || logicSelected || qualityTargetSelected)));
-    element.classList.toggle("quality-related", Boolean(qualityTargetSelected && !idSelected));
+function applyUrlState() {
+  const params = new URLSearchParams(window.location.search);
+  const focus = params.get("focus");
+  const selectedNode = focus && node(focus) && !isChildNode(focus) ? focus : null;
+  if (selectedNode) {
+    catalogState.selectedKind = "node";
+    catalogState.selectedId = selectedNode;
+    graphState.focusId = selectedNode;
+  }
+  if (params.get("view") === "graph") openPage("graph");
+  else renderAll();
+}
+
+function openSelectionInGraph() {
+  if (catalogState.selectedKind === "edge") {
+    const edge = graphEdge(catalogState.selectedId);
+    if (edge) {
+      const normalized = normalizedEdge(edge);
+      graphState.focusId = normalized.source;
+      graphState.selectedEdgeId = normalized.id;
+      graphState.selectedFieldId = null;
+      graphState.edgeTypes.add(normalized.type);
+      if (isChildNode(edge.source)) graphState.expanded.add(normalized.source);
+      if (isChildNode(edge.target)) graphState.expanded.add(normalized.target);
+    }
+  } else {
+    graphState.focusId = catalogState.selectedId;
+    graphState.selectedEdgeId = null;
+    graphState.selectedFieldId = null;
+  }
+  openPage("graph");
+}
+
+function resetCatalogFilters() {
+  catalogState.query = "";
+  catalogState.nodeTypes = new Set(nodeTypes());
+  catalogState.edgeTypes = new Set(edgeTypes());
+  catalogState.tags = new Set(allTags());
+  els.catalogSearch.value = "";
+  renderCatalog();
+}
+
+function resetGraphFilters() {
+  graphState.nodeTypes = new Set(nodeTypes());
+  graphState.edgeTypes = new Set(edgeTypes());
+  graphState.tags = new Set(allTags());
+  graphState.maxDepth = 1;
+  graphState.selectedEdgeId = null;
+  graphState.selectedFieldId = null;
+  graphState.expanded.clear();
+  renderGraphPage();
+  fitGraph();
+}
+
+function toggleSet(set, value) {
+  if (set.has(value)) set.delete(value);
+  else set.add(value);
+}
+
+function fitGraph() {
+  const bounds = visibleGraphBounds();
+  const viewportWidth = Math.max(els.viewport.clientWidth, 320);
+  const viewportHeight = Math.max(els.viewport.clientHeight, 260);
+  const left = Math.max(0, bounds.left + bounds.width / 2 - viewportWidth / 2);
+  const top = Math.max(0, bounds.top + bounds.height / 2 - viewportHeight / 2);
+  els.viewport.scrollTo({ left, top, behavior: "smooth" });
+}
+
+function visibleGraphBounds() {
+  const positions = graphState.visible.positions || new Map();
+  const nodeIds = graphState.visible.nodes.map(item => item.id).filter(id => positions.has(id));
+  if (!nodeIds.length) return { left: 0, top: 0, width: 1800, height: 1300 };
+  let left = Infinity;
+  let top = Infinity;
+  let right = -Infinity;
+  let bottom = -Infinity;
+  nodeIds.forEach(id => {
+    const p = positions.get(id);
+    const expandedHeight = isExpandedNode(id) ? estimatedExpandedHeight(id) : 150;
+    const nodeWidth = isExpandedNode(id) ? 300 : 260;
+    left = Math.min(left, p.x);
+    top = Math.min(top, p.y);
+    right = Math.max(right, p.x + nodeWidth);
+    bottom = Math.max(bottom, p.y + expandedHeight);
   });
-  document.querySelectorAll(".graph-cluster.parent-scenario-cluster, .graph-cluster.sub-scenario-cluster").forEach(element => {
-    element.classList.toggle("selected", element.dataset.id === selected);
-  });
-  document.querySelectorAll(".graph-cluster.catalog-stage-cluster").forEach(element => {
-    element.classList.remove("selected");
-  });
-  if (selectedEdge) highlightSemanticEdge(selectedEdge);
+  return {
+    left: Math.max(0, left - 120),
+    top: Math.max(0, top - 100),
+    width: Math.min(1800, right + 120) - Math.max(0, left - 120),
+    height: Math.min(1300, bottom + 100) - Math.max(0, top - 100),
+  };
+}
+
+function estimatedExpandedHeight(id) {
+  const rows = childItems(id).slice(0, 18).length;
+  return 118 + rows * 68;
+}
+
+function clamp(value, min, max) {
+  return Math.max(min, Math.min(max, value));
 }
 
 function escapeHtml(value) {
@@ -2285,20 +1311,112 @@ function escapeAttr(value) {
   return escapeHtml(value).replace(/`/g, "&#096;");
 }
 
-const resetEl = document.getElementById("reset");
-if (resetEl) {
-  resetEl.onclick = () => {
-    searchEl.value = "";
-    expanded.clear();
-    activeTypes = new Set(graph.nodes.filter(node => !childTypes.has(node.type)).map(node => node.type));
-    browseTypes = new Set(graph.nodes.map(node => node.type));
-    page = "catalog";
-    selected = "scenario.margin_booking_settlement";
-    selectedEdge = null;
-    selectedLogic = null;
-    render();
-  };
+function cssEscape(value) {
+  if (window.CSS?.escape) return CSS.escape(value);
+  return String(value).replace(/["\\]/g, "\\$&");
 }
 
-searchEl.addEventListener("input", render);
-render();
+document.addEventListener("click", event => {
+  const openNode = event.target.closest("[data-open-graph-node]");
+  if (openNode) {
+    catalogState.selectedKind = "node";
+    catalogState.selectedId = openNode.dataset.openGraphNode;
+    graphState.focusId = catalogState.selectedId;
+    graphState.selectedEdgeId = null;
+    graphState.selectedFieldId = null;
+    openPage("graph");
+    event.stopPropagation();
+    return;
+  }
+
+  const openEdge = event.target.closest("[data-open-graph-edge]");
+  if (openEdge) {
+    catalogState.selectedKind = "edge";
+    catalogState.selectedId = openEdge.dataset.openGraphEdge;
+    openSelectionInGraph();
+    event.stopPropagation();
+    return;
+  }
+
+  const childRow = event.target.closest("[data-child-id]");
+  if (childRow) {
+    selectGraphField(childRow.dataset.childId);
+    event.stopPropagation();
+    return;
+  }
+
+  const catalogNode = event.target.closest("[data-catalog-node]");
+  if (catalogNode) {
+    catalogState.selectedKind = "node";
+    catalogState.selectedId = catalogNode.dataset.catalogNode;
+    renderCatalog();
+    return;
+  }
+
+  const catalogEdge = event.target.closest("[data-catalog-edge]");
+  if (catalogEdge) {
+    catalogState.selectedKind = "edge";
+    catalogState.selectedId = catalogEdge.dataset.catalogEdge;
+    renderCatalog();
+    return;
+  }
+
+  const graphNode = event.target.closest("[data-graph-node]");
+  if (graphNode && !event.target.closest("[data-toggle-node-fields]")) {
+    graphState.focusId = graphNode.dataset.graphNode;
+    graphState.selectedEdgeId = null;
+    graphState.selectedFieldId = null;
+    renderGraphPage();
+    return;
+  }
+
+  const expand = event.target.closest("[data-toggle-node-fields]");
+  if (expand) {
+    toggleSet(graphState.expanded, expand.dataset.toggleNodeFields);
+    renderGraphPage();
+    return;
+  }
+
+  const related = event.target.closest("[data-related-node]");
+  if (related) {
+    graphState.focusId = related.dataset.relatedNode;
+    graphState.selectedEdgeId = related.dataset.miniEdge || null;
+    graphState.selectedFieldId = null;
+    openPage("graph");
+    return;
+  }
+
+  const filter = event.target.closest("[data-filter-kind]");
+  if (!filter) return;
+  const kind = filter.dataset.filterKind;
+  const value = filter.dataset.filterValue;
+  if (kind === "catalog-node-type") toggleSet(catalogState.nodeTypes, value);
+  if (kind === "catalog-edge-type") toggleSet(catalogState.edgeTypes, value);
+  if (kind === "catalog-tag") toggleSet(catalogState.tags, value);
+  if (kind === "graph-node-type") toggleSet(graphState.nodeTypes, value);
+  if (kind === "graph-edge-type") toggleSet(graphState.edgeTypes, value);
+  if (kind === "graph-tag") toggleSet(graphState.tags, value);
+  renderAll();
+});
+
+els.catalogSearch.addEventListener("input", event => {
+  catalogState.query = event.target.value.trim().toLowerCase();
+  renderCatalog();
+});
+els.catalogReset.addEventListener("click", resetCatalogFilters);
+els.openGraph.addEventListener("click", openSelectionInGraph);
+els.catalogTab.addEventListener("click", () => openPage("catalog"));
+els.graphTab.addEventListener("click", () => openPage("graph"));
+els.backToCatalog.addEventListener("click", () => openPage("catalog"));
+els.depth.addEventListener("input", event => {
+  graphState.maxDepth = Number(event.target.value);
+  renderGraphPage();
+});
+els.graphReset.addEventListener("click", resetGraphFilters);
+els.fit.addEventListener("click", fitGraph);
+els.expandSelected.addEventListener("click", () => {
+  setAllVisibleFields(!allVisibleFieldNodesExpanded());
+  renderGraphPage();
+});
+
+applyUrlState();

@@ -1,0 +1,36 @@
+id: table.sales.order_header
+type: table
+name: order_header
+description: Stores one row per confirmed customer order.
+owner: Sales Data Engineering
+schema: sales
+columns:
+  - name: order_id
+    data_type: varchar
+    nullable: false
+    term: term.order_identifier
+    description: Primary key for the customer order.
+    lineage:
+      downstream:
+        - id: column.support.refund_request.order_id
+          description: Refund requests carry the source order identifier.
+  - name: customer_id
+    data_type: varchar
+    nullable: false
+    description: Customer identifier on the order.
+  - name: order_total_amount
+    data_type: decimal
+    nullable: false
+    description: Gross order amount at checkout.
+  - name: order_created_at
+    data_type: timestamp
+    nullable: false
+    description: Timestamp when the order was confirmed.
+primary_key:
+  - order_id
+evidence:
+  - kind: db_schema
+    ref: evidence/schema_snapshots/sales_order_header.json
+verified:
+  status: false
+  reason: generated_from_skill_demo

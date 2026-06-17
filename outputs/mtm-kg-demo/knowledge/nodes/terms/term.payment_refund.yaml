@@ -1,0 +1,14 @@
+id: term.payment_refund
+type: term
+name: Payment Refund
+description: Payment processor transaction that returns funds to the customer.
+definition: A payment refund is the financial transaction sent to the payment provider after a refund decision is approved.
+aliases:
+  - refund transaction
+owner: Payments Data Steward
+evidence:
+  - kind: api_contract
+    ref: services/payments/openapi.yaml#/refunds
+verified:
+  status: false
+  reason: needs_payment_owner_confirmation
