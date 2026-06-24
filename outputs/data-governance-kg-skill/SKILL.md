@@ -299,10 +299,11 @@ Frontend build contract:
 
 ```text
 frontend/index.html is a committed static UI shell.
+frontend/vendor/elk.bundled.js is a committed local ELKJS layout dependency used by the graph page.
 scripts/build_graph.py does not generate or overwrite index.html.
 scripts/build_graph.py generates the data files consumed by index.html.
 If YAML changes, rerun scripts/build_graph.py and refresh the browser.
-If app.js/style.css/index.html changes, update those frontend files directly and bump their query-string version in index.html when browser cache may matter.
+If app.js/style.css/index.html or frontend vendor files change, update those frontend files directly and bump their query-string version in index.html when browser cache may matter.
 ```
 
 Generated outputs:
@@ -360,9 +361,11 @@ choose max depth
 show related nodes and edges
 show node profile
 show edge profile
+auto-layout the graph with ELKJS
+allow manual drag adjustment after layout
 ```
 
-`column` and `business_entity_property` nodes are collapsed inside their parent table/view/business entity by default. Show field/property-level connections only when both parent nodes are expanded.
+`column` and `business_entity_property` nodes are collapsed inside their parent table/view/business entity by default. Show field/property-level connections only after the user selects a concrete field/property; then expand the linked parent nodes and draw only the selected field/property relationships.
 
 ## Validation Checklist
 

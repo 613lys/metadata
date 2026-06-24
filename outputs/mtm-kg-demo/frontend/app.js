@@ -1,5 +1,8 @@
 const graph = window.GRAPH_DATA || { nodes: [], edges: [] };
 const catalog = window.CATALOG_DATA || {};
+const DEFAULT_GRAPH_SIZE = { width: 1800, height: 1300 };
+const GRAPH_PADDING = 90;
+const elkLayoutEngine = window.ELK ? new window.ELK() : null;
 
 const els = {
   stats: document.getElementById("stats"),
@@ -89,7 +92,8 @@ const graphState = {
   manualPositions: new Map(),
   dragging: null,
   suppressNextClick: false,
-  visible: { nodes: [], edges: [], childEdges: [], depthById: new Map(), positions: new Map() },
+  layoutRun: 0,
+  visible: { nodes: [], edges: [], childEdges: [], depthById: new Map(), positions: new Map(), size: { ...DEFAULT_GRAPH_SIZE } },
 };
 
 function node(id) {
@@ -472,12 +476,12 @@ function renderMiniEdgeCard(edge) {
   `;
 }
 
-function renderGraphPage() {
+function renderGraphPage(options = {}) {
   if (!graphState.focusId || !node(graphState.focusId)) graphState.focusId = chooseInitialNode();
   graphState.visible = graphNeighborhood();
   renderGraphFilters();
   renderGraphFocus();
-  renderGraph();
+  renderGraph(options);
   renderGraphDetail();
 }
 
@@ -579,6 +583,7 @@ function graphNeighborhood() {
     childEdges: visibleChildEdges,
     depthById: visited,
     positions: new Map(),
+    size: { ...DEFAULT_GRAPH_SIZE },
   };
 }
 
@@ -591,10 +596,82 @@ function selectedFieldEdges() {
   return childEdges().filter(edge => edge.sourceOriginal === graphState.selectedFieldId || edge.targetOriginal === graphState.selectedFieldId);
 }
 
-function graphLayout(nodes, depthById) {
+async function graphLayout(nodes, depthById, edges = [], childEdgesForLayout = []) {
+  if (elkLayoutEngine) {
+    try {
+      return await elkGraphLayout(nodes, edges, childEdgesForLayout);
+    } catch (error) {
+      console.warn("ELK layout failed, falling back to built-in graph layout.", error);
+    }
+  }
+  return fallbackGraphLayout(nodes, depthById);
+}
+
+async function elkGraphLayout(nodes, edges = [], childEdgesForLayout = []) {
+  const visibleIds = new Set(nodes.map(item => item.id));
+  const elkGraph = {
+    id: "metadata-graph",
+    layoutOptions: {
+      "elk.algorithm": "layered",
+      "elk.direction": "RIGHT",
+      "elk.edgeRouting": "SPLINES",
+      "elk.spacing.nodeNode": "64",
+      "elk.layered.spacing.nodeNodeBetweenLayers": "110",
+      "elk.layered.spacing.edgeNodeBetweenLayers": "36",
+      "elk.layered.nodePlacement.strategy": "NETWORK_SIMPLEX",
+      "elk.layered.layering.strategy": "NETWORK_SIMPLEX",
+      "elk.layered.crossingMinimization.strategy": "LAYER_SWEEP",
+    },
+    children: nodes.map(item => ({
+      id: item.id,
+      width: estimatedNodeWidth(item.id),
+      height: estimatedNodeHeight(item.id),
+    })),
+    edges: layoutEdgesForElk([...edges, ...childEdgesForLayout], visibleIds),
+  };
+  const result = await elkLayoutEngine.layout(elkGraph);
   const positions = new Map();
-  const width = 1800;
-  const height = 1300;
+  (result.children || []).forEach(item => {
+    positions.set(item.id, {
+      x: Math.round((item.x || 0) + GRAPH_PADDING),
+      y: Math.round((item.y || 0) + GRAPH_PADDING),
+    });
+  });
+  const width = Math.max(DEFAULT_GRAPH_SIZE.width, Math.ceil((result.width || DEFAULT_GRAPH_SIZE.width) + GRAPH_PADDING * 2));
+  const height = Math.max(DEFAULT_GRAPH_SIZE.height, Math.ceil((result.height || DEFAULT_GRAPH_SIZE.height) + GRAPH_PADDING * 2));
+  applyManualPositions(positions, width, height);
+  return { positions, size: { width, height } };
+}
+
+function layoutEdgesForElk(edges, visibleIds) {
+  const seen = new Set();
+  return edges
+    .map(edge => layoutEdgeDirection(edge))
+    .filter(edge => edge.source !== edge.target && visibleIds.has(edge.source) && visibleIds.has(edge.target))
+    .filter(edge => {
+      const key = `${edge.source}|${edge.target}|${edge.type}`;
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    })
+    .map((edge, index) => ({
+      id: `layout-edge-${index}`,
+      sources: [edge.source],
+      targets: [edge.target],
+    }));
+}
+
+function layoutEdgeDirection(edge) {
+  if (["READS_FROM", "DERIVES_FROM", "REFERENCES", "DEPENDS_ON", "HAS_TERM"].includes(edge.type)) {
+    return { ...edge, source: edge.target, target: edge.source };
+  }
+  return edge;
+}
+
+function fallbackGraphLayout(nodes, depthById) {
+  const positions = new Map();
+  const width = DEFAULT_GRAPH_SIZE.width;
+  const height = DEFAULT_GRAPH_SIZE.height;
   const lanes = directionalLanes(nodes);
   positions.set(graphState.focusId, { x: 785, y: 560 });
 
@@ -628,7 +705,7 @@ function graphLayout(nodes, depthById) {
     });
   });
   applyManualPositions(positions, width, height);
-  return positions;
+  return { positions, size: { width, height } };
 }
 
 function applyManualPositions(positions, width, height) {
@@ -720,16 +797,20 @@ function placeLane(group, startX, startY, gapY, positions, width, height, horizo
   });
 }
 
-function renderGraph() {
+async function renderGraph(options = {}) {
   const model = graphState.visible;
-  const positions = graphLayout(model.nodes, model.depthById);
+  const layoutRun = ++graphState.layoutRun;
+  const layout = await graphLayout(model.nodes, model.depthById, model.edges, model.childEdges);
+  if (layoutRun !== graphState.layoutRun || model !== graphState.visible) return;
+  const positions = layout.positions || new Map();
   model.positions = positions;
+  model.size = layout.size || { ...DEFAULT_GRAPH_SIZE };
+  setGraphCanvasSize(model.size);
   els.board.innerHTML = "";
   els.edgeLayer.innerHTML = "";
   els.fieldEdgeLayer.innerHTML = "";
   ensureArrowDefs(els.edgeLayer, "node");
   ensureArrowDefs(els.fieldEdgeLayer, "field");
-  renderLaneLabels();
 
   model.nodes.forEach(item => {
     const p = positions.get(item.id);
@@ -763,6 +844,16 @@ function renderGraph() {
   requestAnimationFrame(() => {
     drawEdges(model.edges, false, els.edgeLayer);
     drawEdges(model.childEdges, true, els.fieldEdgeLayer);
+    if (options.fitAfter) fitGraph();
+  });
+}
+
+function setGraphCanvasSize(size) {
+  const width = Math.max(DEFAULT_GRAPH_SIZE.width, Math.ceil(size?.width || DEFAULT_GRAPH_SIZE.width));
+  const height = Math.max(DEFAULT_GRAPH_SIZE.height, Math.ceil(size?.height || DEFAULT_GRAPH_SIZE.height));
+  [els.board, els.edgeLayer, els.fieldEdgeLayer].forEach(el => {
+    el.style.width = `${width}px`;
+    el.style.height = `${height}px`;
   });
 }
 
@@ -1264,8 +1355,7 @@ function openPage(page) {
   els.catalogTab.classList.toggle("active", !showGraph);
   els.graphTab.classList.toggle("active", showGraph);
   if (showGraph) {
-    renderGraphPage();
-    fitGraph();
+    renderGraphPage({ fitAfter: true });
   } else {
     renderCatalog();
   }
@@ -1322,8 +1412,7 @@ function resetGraphFilters() {
   graphState.selectedFieldId = null;
   graphState.expanded.clear();
   graphState.manualPositions.clear();
-  renderGraphPage();
-  fitGraph();
+  renderGraphPage({ fitAfter: true });
 }
 
 function toggleSet(set, value) {
@@ -1385,25 +1474,28 @@ function fitGraph() {
 function visibleGraphBounds() {
   const positions = graphState.visible.positions || new Map();
   const nodeIds = graphState.visible.nodes.map(item => item.id).filter(id => positions.has(id));
-  if (!nodeIds.length) return { left: 0, top: 0, width: 1800, height: 1300 };
+  const size = graphState.visible.size || DEFAULT_GRAPH_SIZE;
+  if (!nodeIds.length) return { left: 0, top: 0, width: size.width, height: size.height };
   let left = Infinity;
   let top = Infinity;
   let right = -Infinity;
   let bottom = -Infinity;
   nodeIds.forEach(id => {
     const p = positions.get(id);
-    const expandedHeight = isExpandedNode(id) ? estimatedExpandedHeight(id) : 150;
-    const nodeWidth = isExpandedNode(id) ? 300 : 260;
+    const expandedHeight = estimatedNodeHeight(id);
+    const nodeWidth = estimatedNodeWidth(id);
     left = Math.min(left, p.x);
     top = Math.min(top, p.y);
     right = Math.max(right, p.x + nodeWidth);
     bottom = Math.max(bottom, p.y + expandedHeight);
   });
+  const paddedLeft = Math.max(0, left - 120);
+  const paddedTop = Math.max(0, top - 100);
   return {
-    left: Math.max(0, left - 120),
-    top: Math.max(0, top - 100),
-    width: Math.min(1800, right + 120) - Math.max(0, left - 120),
-    height: Math.min(1300, bottom + 100) - Math.max(0, top - 100),
+    left: paddedLeft,
+    top: paddedTop,
+    width: Math.min(size.width, right + 120) - paddedLeft,
+    height: Math.min(size.height, bottom + 100) - paddedTop,
   };
 }
 
@@ -1413,7 +1505,11 @@ function estimatedExpandedHeight(id) {
 }
 
 function estimatedNodeHeight(id) {
-  return isExpandedNode(id) ? estimatedExpandedHeight(id) : 160;
+  return isExpandedNode(id) ? estimatedExpandedHeight(id) : 120;
+}
+
+function estimatedNodeWidth(id) {
+  return isExpandedNode(id) ? 280 : 230;
 }
 
 function clamp(value, min, max) {
@@ -1465,8 +1561,9 @@ function dragGraphNode(event) {
   event.preventDefault();
   const width = drag.nodeEl.offsetWidth || 260;
   const height = drag.nodeEl.offsetHeight || estimatedNodeHeight(drag.id);
-  const x = clamp(drag.startX + dx, 20, 1800 - width - 20);
-  const y = clamp(drag.startY + dy, 20, 1300 - height - 20);
+  const size = graphState.visible.size || DEFAULT_GRAPH_SIZE;
+  const x = clamp(drag.startX + dx, 20, size.width - width - 20);
+  const y = clamp(drag.startY + dy, 20, size.height - height - 20);
   drag.nodeEl.classList.add("dragging");
   drag.nodeEl.style.left = `${x}px`;
   drag.nodeEl.style.top = `${y}px`;
