@@ -86,6 +86,9 @@ const graphState = {
   edgeTypes: new Set(edgeTypes()),
   tags: new Set(allTags()),
   expanded: new Set(),
+  manualPositions: new Map(),
+  dragging: null,
+  suppressNextClick: false,
   visible: { nodes: [], edges: [], childEdges: [], depthById: new Map(), positions: new Map() },
 };
 
@@ -123,7 +126,7 @@ function allTags() {
 
 function tagFilterIsActive(selectedTags) {
   const tags = allTags();
-  return selectedTags.size > 0 && selectedTags.size < tags.length;
+  return tags.length > 0 && selectedTags.size < tags.length;
 }
 
 function normalizeType(type) {
@@ -266,7 +269,7 @@ function searchTextForEdge(edge) {
 
 function edgePassesCatalogFilters(edge) {
   const normalized = normalizedEdge(edge);
-  if (catalogState.edgeTypes.size && !catalogState.edgeTypes.has(normalized.type)) return false;
+  if (!catalogState.edgeTypes.has(normalized.type)) return false;
   const sourceType = nodeType(normalized.source);
   const targetType = nodeType(normalized.target);
   if (!catalogState.nodeTypes.has(sourceType) && !catalogState.nodeTypes.has(targetType)) return false;
@@ -319,12 +322,13 @@ function renderCatalogFilters() {
     .map(type => chip(typeName(type), catalogState.nodeTypes.has(type), "catalog-node-type", type))
     .join("");
   els.catalogEdgeTypes.innerHTML = edgeTypes()
-    .map(type => chip(type, catalogState.edgeTypes.has(type), "catalog-edge-type", type))
-    .join("");
+    .length
+    ? multiSelect(edgeTypes(), catalogState.edgeTypes, "catalog-edge-type", "Edge types")
+    : `<div class="empty-state">No edge types in current data.</div>`;
   const tags = allTags();
   els.catalogTags.innerHTML = tags.length
-    ? tags.map(tag => chip(tag, catalogState.tags.has(tag), "catalog-tag", tag)).join("")
-    : `<div class="empty-state">No tags in current data.</div>`;
+    ? multiSelect(tags, catalogState.tags, "catalog-tag", "Data type")
+    : `<div class="empty-state">No data types in current data.</div>`;
 }
 
 function renderNodeResult(item) {
@@ -484,12 +488,13 @@ function renderGraphFilters() {
     .map(type => chip(typeName(type), graphState.nodeTypes.has(type), "graph-node-type", type))
     .join("");
   els.graphEdgeTypes.innerHTML = edgeTypes()
-    .map(type => chip(type, graphState.edgeTypes.has(type), "graph-edge-type", type))
-    .join("");
+    .length
+    ? multiSelect(edgeTypes(), graphState.edgeTypes, "graph-edge-type", "Edge types")
+    : `<div class="empty-state">No edge types in current data.</div>`;
   const tags = allTags();
   els.graphTags.innerHTML = tags.length
-    ? tags.map(tag => chip(tag, graphState.tags.has(tag), "graph-tag", tag)).join("")
-    : `<div class="empty-state">No tags in current data.</div>`;
+    ? multiSelect(tags, graphState.tags, "graph-tag", "Data type")
+    : `<div class="empty-state">No data types in current data.</div>`;
 }
 
 function renderGraphFocus() {
@@ -508,7 +513,7 @@ function renderGraphFocus() {
 
 function graphNeighborhood() {
   const traversalEdges = parentEdges().filter(edge => {
-    if (!graphState.nodeTypes.has(nodeType(edge.source)) || !graphState.nodeTypes.has(nodeType(edge.target))) return false;
+    if (!graphNodeTypeAllowed(edge.source) || !graphNodeTypeAllowed(edge.target)) return false;
     if (tagFilterIsActive(graphState.tags)) {
       const tagPool = [...tagsFor(edge.source), ...tagsFor(edge.target)];
       if (![...graphState.tags].some(tag => tagPool.includes(tag))) return false;
@@ -538,36 +543,33 @@ function graphNeighborhood() {
   }
 
   const nodeSet = new Set([...visited.keys()].filter(id => node(id)));
-  const candidateChildEdges = childEdges().filter(edge => {
-    if (graphState.edgeTypes.size && !graphState.edgeTypes.has(edge.type)) return false;
-    if (isChildNode(edge.sourceOriginal) && !isExpanded(edge.source)) return false;
-    if (isChildNode(edge.targetOriginal) && !isExpanded(edge.target)) return false;
+  const selectedChildEdges = selectedFieldEdges().filter(edge => {
+    if (!graphState.edgeTypes.has(edge.type)) return false;
+    if (!graphNodeTypeAllowed(edge.source) || !graphNodeTypeAllowed(edge.target)) return false;
+    if (tagFilterIsActive(graphState.tags)) {
+      const tagPool = [...tagsFor(edge.source), ...tagsFor(edge.target)];
+      if (![...graphState.tags].some(tag => tagPool.includes(tag))) return false;
+    }
     return true;
   });
 
-  candidateChildEdges.forEach(edge => {
-    if (edge.type !== "HAS_TERM") return;
-    if (!nodeSet.has(edge.source) && !nodeSet.has(edge.target)) return;
-    const termId = nodeType(edge.sourceOriginal) === "term" ? edge.sourceOriginal : edge.targetOriginal;
-    if (nodeType(termId) !== "term") return;
-    if (!graphState.nodeTypes.has("term")) return;
-    if (tagFilterIsActive(graphState.tags)) {
-      const tagPool = [...tagsFor(edge.source), ...tagsFor(edge.target)];
-      if (![...graphState.tags].some(tag => tagPool.includes(tag))) return;
-    }
-    nodeSet.add(termId);
-    if (!visited.has(termId)) {
-      const parentId = edge.source === termId ? edge.target : edge.source;
-      visited.set(termId, (visited.get(parentId) || 0) + 1);
-    }
+  selectedChildEdges.forEach(edge => {
+    [edge.source, edge.target].forEach(id => {
+      if (!node(id)) return;
+      nodeSet.add(id);
+      if (!visited.has(id)) {
+        const anchor = nodeSet.has(edge.source) ? edge.source : graphState.focusId;
+        visited.set(id, (visited.get(anchor) || 0) + 1);
+      }
+    });
   });
 
   const visibleEdges = traversalEdges.filter(edge => {
     if (!nodeSet.has(edge.source) || !nodeSet.has(edge.target)) return false;
-    if (graphState.edgeTypes.size && !graphState.edgeTypes.has(edge.type)) return false;
+    if (!graphState.edgeTypes.has(edge.type)) return false;
     return true;
   });
-  const visibleChildEdges = candidateChildEdges.filter(edge => {
+  const visibleChildEdges = selectedChildEdges.filter(edge => {
     if (!nodeSet.has(edge.source) || !nodeSet.has(edge.target)) return false;
     return true;
   });
@@ -578,6 +580,15 @@ function graphNeighborhood() {
     depthById: visited,
     positions: new Map(),
   };
+}
+
+function graphNodeTypeAllowed(id) {
+  return id === graphState.focusId || graphState.nodeTypes.has(nodeType(id));
+}
+
+function selectedFieldEdges() {
+  if (!graphState.selectedFieldId) return [];
+  return childEdges().filter(edge => edge.sourceOriginal === graphState.selectedFieldId || edge.targetOriginal === graphState.selectedFieldId);
 }
 
 function graphLayout(nodes, depthById) {
@@ -616,7 +627,19 @@ function graphLayout(nodes, depthById) {
       });
     });
   });
+  applyManualPositions(positions, width, height);
   return positions;
+}
+
+function applyManualPositions(positions, width, height) {
+  graphState.manualPositions.forEach((manual, id) => {
+    if (!positions.has(id)) return;
+    const expanded = isExpandedNode(id);
+    positions.set(id, {
+      x: clamp(manual.x, 20, width - (expanded ? 320 : 260)),
+      y: clamp(manual.y, 20, height - estimatedNodeHeight(id)),
+    });
+  });
 }
 
 function directionalLanes(nodes) {
@@ -849,6 +872,15 @@ function drawEdges(edges, fieldLevel, layer) {
     });
     layer.appendChild(labelEl);
   });
+}
+
+function redrawGraphEdges() {
+  els.edgeLayer.innerHTML = "";
+  els.fieldEdgeLayer.innerHTML = "";
+  ensureArrowDefs(els.edgeLayer, "node");
+  ensureArrowDefs(els.fieldEdgeLayer, "field");
+  drawEdges(graphState.visible.edges, false, els.edgeLayer);
+  drawEdges(graphState.visible.childEdges, true, els.fieldEdgeLayer);
 }
 
 function ensureArrowDefs(layer, variant) {
@@ -1100,17 +1132,24 @@ function selectGraphEdge(edge) {
 function selectGraphField(fieldId) {
   graphState.selectedFieldId = fieldId;
   graphState.selectedEdgeId = null;
-  renderGraphDetail();
-  els.board.querySelectorAll(".field-row").forEach(item => {
-    item.classList.toggle("selected", item.dataset.childId === fieldId);
-  });
-  allEdgeElements().forEach(item => {
-    item.classList.remove("selected");
-  });
+  expandLinkedParentsForField(fieldId);
+  renderGraphPage();
 }
 
 function allEdgeElements() {
   return [...els.edgeLayer.querySelectorAll(".edge-path, .edge-label, .edge-hit"), ...els.fieldEdgeLayer.querySelectorAll(".edge-path, .edge-label, .edge-hit")];
+}
+
+function expandLinkedParentsForField(fieldId) {
+  const parentId = parentOf(fieldId);
+  if (parentId) graphState.expanded.add(parentId);
+  childEdges()
+    .filter(edge => edge.sourceOriginal === fieldId || edge.targetOriginal === fieldId)
+    .forEach(edge => {
+      [edge.source, edge.target].forEach(id => {
+        if (["business_entity", "table", "view"].includes(nodeType(id))) graphState.expanded.add(id);
+      });
+    });
 }
 
 function childItems(parentId) {
@@ -1183,6 +1222,37 @@ function chip(labelText, active, kind, value) {
   return `<button class="filter-chip ${active ? "active" : ""}" data-filter-kind="${escapeAttr(kind)}" data-filter-value="${escapeAttr(value)}" type="button">${escapeHtml(labelText)}</button>`;
 }
 
+function multiSelect(values, selected, kind, labelText) {
+  const allLabel = labelText === "Data type" ? "data types" : labelText.toLowerCase();
+  const countText = selected.size === values.length
+    ? `All ${allLabel}`
+    : `${selected.size} selected`;
+  return `
+    <details class="multi-select" data-filter-dropdown="${escapeAttr(kind)}">
+      <summary>
+        <span>${escapeHtml(countText)}</span>
+      </summary>
+      <div class="multi-select-menu">
+        <div class="multi-actions">
+          <button type="button" data-multi-action="select-all" data-multi-filter-kind="${escapeAttr(kind)}">Select all</button>
+          <button type="button" data-multi-action="unselect-all" data-multi-filter-kind="${escapeAttr(kind)}">Unselect all</button>
+        </div>
+        ${values.map(value => `
+          <label class="multi-option">
+            <input
+              type="checkbox"
+              data-multi-filter-kind="${escapeAttr(kind)}"
+              data-multi-filter-value="${escapeAttr(value)}"
+              ${selected.has(value) ? "checked" : ""}
+            />
+            <span>${escapeHtml(value)}</span>
+          </label>
+        `).join("")}
+      </div>
+    </details>
+  `;
+}
+
 function kv(key, value) {
   return `<div class="kv"><span>${escapeHtml(key)}</span><strong>${escapeHtml(String(value || ""))}</strong></div>`;
 }
@@ -1251,6 +1321,7 @@ function resetGraphFilters() {
   graphState.selectedEdgeId = null;
   graphState.selectedFieldId = null;
   graphState.expanded.clear();
+  graphState.manualPositions.clear();
   renderGraphPage();
   fitGraph();
 }
@@ -1258,6 +1329,48 @@ function resetGraphFilters() {
 function toggleSet(set, value) {
   if (set.has(value)) set.delete(value);
   else set.add(value);
+}
+
+function updateMultiFilter(kind, value, checked) {
+  const config = multiFilterConfig(kind);
+  if (!config) return;
+  if (checked) config.set.add(value);
+  else config.set.delete(value);
+  renderAll();
+  reopenFilterDropdown(kind);
+}
+
+function applyMultiAction(kind, action) {
+  const config = multiFilterConfig(kind);
+  if (!config) return;
+  config.set.clear();
+  if (action === "select-all") {
+    config.values().forEach(item => config.set.add(item));
+  }
+  renderAll();
+  reopenFilterDropdown(kind);
+}
+
+function multiFilterConfig(kind) {
+  const configs = {
+    "catalog-edge-type": { set: catalogState.edgeTypes, values: edgeTypes },
+    "catalog-tag": { set: catalogState.tags, values: allTags },
+    "graph-edge-type": { set: graphState.edgeTypes, values: edgeTypes },
+    "graph-tag": { set: graphState.tags, values: allTags },
+  };
+  return configs[kind];
+}
+
+function reopenFilterDropdown(kind) {
+  const dropdown = document.querySelector(`[data-filter-dropdown="${cssEscape(kind)}"]`);
+  if (dropdown) dropdown.setAttribute("open", "");
+}
+
+function closeFilterDropdowns(except) {
+  document.querySelectorAll("[data-filter-dropdown][open]").forEach(dropdown => {
+    if (except && dropdown === except) return;
+    dropdown.removeAttribute("open");
+  });
 }
 
 function fitGraph() {
@@ -1299,6 +1412,10 @@ function estimatedExpandedHeight(id) {
   return 118 + rows * 68;
 }
 
+function estimatedNodeHeight(id) {
+  return isExpandedNode(id) ? estimatedExpandedHeight(id) : 160;
+}
+
 function clamp(value, min, max) {
   return Math.max(min, Math.min(max, value));
 }
@@ -1316,7 +1433,79 @@ function cssEscape(value) {
   return String(value).replace(/["\\]/g, "\\$&");
 }
 
+function startGraphNodeDrag(event) {
+  if (graphState.dragging) return;
+  if (event.button !== 0) return;
+  const graphNode = event.target.closest("[data-graph-node]");
+  if (!graphNode) return;
+  if (event.target.closest("button, [data-child-id], .field-row, .edge-label, .edge-path")) return;
+  const id = graphNode.dataset.graphNode;
+  const current = graphState.visible.positions.get(id) || {
+    x: Number.parseFloat(graphNode.style.left) || 0,
+    y: Number.parseFloat(graphNode.style.top) || 0,
+  };
+  graphState.dragging = {
+    id,
+    nodeEl: graphNode,
+    startClientX: event.clientX,
+    startClientY: event.clientY,
+    startX: current.x,
+    startY: current.y,
+    moved: false,
+  };
+}
+
+function dragGraphNode(event) {
+  const drag = graphState.dragging;
+  if (!drag) return;
+  const dx = event.clientX - drag.startClientX;
+  const dy = event.clientY - drag.startClientY;
+  if (!drag.moved && Math.hypot(dx, dy) < 4) return;
+  drag.moved = true;
+  event.preventDefault();
+  const width = drag.nodeEl.offsetWidth || 260;
+  const height = drag.nodeEl.offsetHeight || estimatedNodeHeight(drag.id);
+  const x = clamp(drag.startX + dx, 20, 1800 - width - 20);
+  const y = clamp(drag.startY + dy, 20, 1300 - height - 20);
+  drag.nodeEl.classList.add("dragging");
+  drag.nodeEl.style.left = `${x}px`;
+  drag.nodeEl.style.top = `${y}px`;
+  graphState.manualPositions.set(drag.id, { x, y });
+  graphState.visible.positions.set(drag.id, { x, y });
+  redrawGraphEdges();
+}
+
+function endGraphNodeDrag() {
+  const drag = graphState.dragging;
+  if (!drag) return;
+  drag.nodeEl.classList.remove("dragging");
+  graphState.suppressNextClick = drag.moved;
+  graphState.dragging = null;
+}
+
 document.addEventListener("click", event => {
+  if (graphState.suppressNextClick) {
+    graphState.suppressNextClick = false;
+    event.preventDefault();
+    event.stopPropagation();
+    return;
+  }
+
+  const dropdown = event.target.closest("[data-filter-dropdown]");
+  if (dropdown) {
+    closeFilterDropdowns(dropdown);
+  } else {
+    closeFilterDropdowns();
+  }
+
+  const multiAction = event.target.closest("[data-multi-action]");
+  if (multiAction) {
+    applyMultiAction(multiAction.dataset.multiFilterKind, multiAction.dataset.multiAction);
+    event.preventDefault();
+    event.stopPropagation();
+    return;
+  }
+
   const openNode = event.target.closest("[data-open-graph-node]");
   if (openNode) {
     catalogState.selectedKind = "node";
@@ -1372,7 +1561,13 @@ document.addEventListener("click", event => {
 
   const expand = event.target.closest("[data-toggle-node-fields]");
   if (expand) {
-    toggleSet(graphState.expanded, expand.dataset.toggleNodeFields);
+    const id = expand.dataset.toggleNodeFields;
+    const willCollapse = graphState.expanded.has(id);
+    toggleSet(graphState.expanded, id);
+    if (willCollapse && graphState.selectedFieldId && parentOf(graphState.selectedFieldId) === id) {
+      graphState.selectedFieldId = null;
+      graphState.selectedEdgeId = null;
+    }
     renderGraphPage();
     return;
   }
@@ -1399,6 +1594,13 @@ document.addEventListener("click", event => {
   renderAll();
 });
 
+document.addEventListener("change", event => {
+  const multi = event.target.closest("[data-multi-filter-kind]");
+  if (!multi) return;
+  updateMultiFilter(multi.dataset.multiFilterKind, multi.dataset.multiFilterValue, multi.checked);
+  event.stopPropagation();
+});
+
 els.catalogSearch.addEventListener("input", event => {
   catalogState.query = event.target.value.trim().toLowerCase();
   renderCatalog();
@@ -1415,8 +1617,20 @@ els.depth.addEventListener("input", event => {
 els.graphReset.addEventListener("click", resetGraphFilters);
 els.fit.addEventListener("click", fitGraph);
 els.expandSelected.addEventListener("click", () => {
-  setAllVisibleFields(!allVisibleFieldNodesExpanded());
+  const open = !allVisibleFieldNodesExpanded();
+  setAllVisibleFields(open);
+  if (!open) {
+    graphState.selectedFieldId = null;
+    graphState.selectedEdgeId = null;
+  }
   renderGraphPage();
 });
+document.addEventListener("pointerdown", startGraphNodeDrag);
+document.addEventListener("pointermove", dragGraphNode);
+document.addEventListener("pointerup", endGraphNodeDrag);
+document.addEventListener("pointercancel", endGraphNodeDrag);
+document.addEventListener("mousedown", startGraphNodeDrag);
+document.addEventListener("mousemove", dragGraphNode);
+document.addEventListener("mouseup", endGraphNodeDrag);
 
 applyUrlState();

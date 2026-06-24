@@ -244,6 +244,96 @@ p {
   opacity: .72;
 }
 
+.multi-select {
+  width: 100%;
+}
+
+.multi-select summary {
+  min-height: 34px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 7px 10px;
+  border: 1px solid #cfd8e6;
+  border-radius: 7px;
+  background: #fff;
+  color: #1d2939;
+  font-size: 12px;
+  font-weight: 750;
+  cursor: pointer;
+  user-select: none;
+}
+
+.multi-select summary::-webkit-details-marker {
+  display: none;
+}
+
+.multi-select summary::after {
+  content: "";
+  width: 7px;
+  height: 7px;
+  border-right: 1.6px solid #667085;
+  border-bottom: 1.6px solid #667085;
+  transform: rotate(45deg) translateY(-2px);
+}
+
+.multi-select[open] summary::after {
+  transform: rotate(-135deg) translateY(-1px);
+}
+
+.multi-select-menu {
+  margin-top: 6px;
+  max-height: 220px;
+  overflow: auto;
+  padding: 6px;
+  border: 1px solid #d9e2ee;
+  border-radius: 7px;
+  background: #fff;
+  box-shadow: var(--shadow);
+}
+
+.multi-actions {
+  display: flex;
+  gap: 6px;
+  padding: 2px 2px 7px;
+  margin-bottom: 3px;
+  border-bottom: 1px solid var(--line-soft);
+}
+
+.multi-actions button {
+  min-height: 24px;
+  padding: 3px 7px;
+  border-radius: 6px;
+  font-size: 11px;
+}
+
+.multi-option {
+  display: grid;
+  grid-template-columns: 16px minmax(0, 1fr);
+  align-items: start;
+  gap: 8px;
+  padding: 7px 6px;
+  border-radius: 6px;
+  color: #344054;
+  font-size: 12px;
+  line-height: 1.35;
+  cursor: pointer;
+}
+
+.multi-option:hover {
+  background: #f2f6fb;
+}
+
+.multi-option input {
+  margin: 1px 0 0;
+  accent-color: var(--accent);
+}
+
+.multi-option span {
+  overflow-wrap: anywhere;
+}
+
 .filter-help {
   margin-top: 8px;
   color: var(--muted);
@@ -623,9 +713,15 @@ p {
   border-radius: 7px;
   background: rgba(255, 255, 255, .98);
   box-shadow: var(--shadow);
-  cursor: pointer;
+  cursor: grab;
   overflow: hidden;
   pointer-events: auto;
+}
+
+.graph-node.dragging {
+  cursor: grabbing;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 4px rgba(31, 111, 235, .16), var(--shadow);
 }
 
 .graph-node.expanded {

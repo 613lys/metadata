@@ -4,7 +4,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Metadata Catalog Explorer</title>
-    <link rel="stylesheet" href="./style.css?v=edge-arrows" />
+    <link rel="stylesheet" href="./style.css?v=multi-select-actions-v2" />
   </head>
   <body>
     <header class="topbar">
@@ -26,7 +26,7 @@
       <section class="search-sidebar">
         <label class="field">
           <span>Node name / keyword</span>
-          <input id="catalogSearchInput" type="search" placeholder="Search node, id, description, field, tag..." autocomplete="off" />
+          <input id="catalogSearchInput" type="search" placeholder="Search node, id, description, field, data type..." autocomplete="off" />
         </label>
 
         <section class="filter-section">
@@ -37,13 +37,13 @@
         <section class="filter-section">
           <div class="section-title">Edge Type</div>
           <div id="catalogEdgeTypeFilters" class="chip-list"></div>
-          <p class="filter-help">No edge types selected means all edge types.</p>
+          <p class="filter-help">All edge types selected means no edge type restriction.</p>
         </section>
 
         <section class="filter-section">
-          <div class="section-title">Tags</div>
+          <div class="section-title">Data type</div>
           <div id="catalogTagFilters" class="chip-list"></div>
-          <p class="filter-help">All tags selected means no tag restriction.</p>
+          <p class="filter-help">All data types selected means no data type restriction.</p>
         </section>
 
         <button id="catalogResetButton" class="secondary" type="button">Reset search filters</button>
@@ -104,13 +104,13 @@
         <section class="filter-section">
           <div class="section-title">Edge Type</div>
           <div id="graphEdgeTypeFilters" class="chip-list"></div>
-          <p class="filter-help">No edge types selected means all edge types.</p>
+          <p class="filter-help">All edge types selected means no edge type restriction.</p>
         </section>
 
         <section class="filter-section">
-          <div class="section-title">Tags</div>
+          <div class="section-title">Data type</div>
           <div id="graphTagFilters" class="chip-list"></div>
-          <p class="filter-help">All tags selected means no tag restriction.</p>
+          <p class="filter-help">All data types selected means no data type restriction.</p>
         </section>
 
         <button id="graphResetButton" class="secondary" type="button">Reset graph filters</button>
@@ -145,8 +145,8 @@
       </aside>
     </main>
 
-    <script src="./graph-data.js?v=edge-arrows"></script>
-    <script src="./catalog-data.js?v=edge-arrows"></script>
-    <script src="./app.js?v=edge-arrows"></script>
+    <script src="./graph-data.js?v=multi-select-actions-v2"></script>
+    <script src="./catalog-data.js?v=multi-select-actions-v2"></script>
+    <script src="./app.js?v=multi-select-actions-v2"></script>
   </body>
 </html>
