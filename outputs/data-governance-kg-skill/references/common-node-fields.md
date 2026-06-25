@@ -2,6 +2,8 @@
 
 Use these fields across all node YAML files unless a reference says otherwise. Keep nodes small: include only fields that help UI or Agent understand, query, map, or validate the graph.
 
+Flow YAML under `knowledge/flows/` reuses `id`, `type`, `name`, `description`, `owner`, `tags`, `evidence`, and `verified`, but it is not a normal graph node. Do not put `related_nodes` or `lineage` on a flow; use `edges[]` and `edge_dependencies[]` as described in `flow-node.md`.
+
 ## Required Fields
 
 ```yaml

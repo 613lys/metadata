@@ -13,6 +13,7 @@ except ImportError as exc:
 
 ROOT = Path(__file__).resolve().parents[1]
 NODES_DIR = ROOT / "knowledge" / "nodes"
+FLOWS_DIR = ROOT / "knowledge" / "flows"
 INDEX_DIR = ROOT / "knowledge" / "indexes"
 FRONTEND_DIR = ROOT / "frontend"
 
@@ -65,6 +66,23 @@ def load_yaml_files() -> list[dict[str, Any]]:
         data["_source_file"] = str(path.relative_to(ROOT)).replace("\\", "/")
         nodes.append(data)
     return nodes
+
+
+def load_flow_files() -> list[dict[str, Any]]:
+    flows: list[dict[str, Any]] = []
+    if not FLOWS_DIR.exists():
+        return flows
+    for path in sorted(FLOWS_DIR.rglob("*.yaml")):
+        data = yaml.safe_load(path.read_text(encoding="utf-8"))
+        if not data:
+            continue
+        if not all(k in data for k in ("id", "type", "name", "description")):
+            raise ValueError(f"{path} must include id, type, name, description")
+        if data["type"] != "flow":
+            raise ValueError(f"{path} must use type: flow")
+        data["_source_file"] = str(path.relative_to(ROOT)).replace("\\", "/")
+        flows.append(data)
+    return flows
 
 
 def add_node(nodes: dict[str, dict[str, Any]], node_id: str, node_type: str, label: str, properties: dict[str, Any] | None = None) -> None:
@@ -152,6 +170,9 @@ def search_text_for(item: dict[str, Any]) -> str:
     for prop in item.get("properties") or []:
         parts.extend([prop.get("name", ""), prop.get("description", ""), prop.get("term", ""), prop.get("semantic_role", "")])
         parts.extend(prop.get("allowed_values") or [])
+        parts.extend(prop.get("maps_to") or [])
+        for rel in prop.get("related_nodes") or []:
+            parts.extend([rel.get("id", ""), rel.get("relation", ""), rel.get("description", "")])
     for qc in item.get("quality_checks") or []:
         parts.extend([qc.get("name", ""), qc.get("check_type", ""), str(qc.get("expectation", ""))])
         for target in qc.get("validates") or []:
@@ -241,6 +262,16 @@ def compile_graph(raw_nodes: list[dict[str, Any]]) -> tuple[dict[str, Any], dict
                     add_edge(graph_edges, prop_id, prop.get("term"), "HAS_TERM", f"{prop_name} is defined by {prop.get('term')}.", "properties.term")
                 for target in prop.get("maps_to") or []:
                     add_edge(graph_edges, prop_id, target, "MAPS_TO", f"{prop_name} maps to {target}.", "properties.maps_to")
+                for rel in prop.get("related_nodes") or []:
+                    add_edge(
+                        graph_edges,
+                        prop_id,
+                        rel.get("id"),
+                        rel.get("relation") or "RELATED_TO",
+                        rel.get("description", ""),
+                        "properties.related_nodes",
+                        rel.get("constraints"),
+                    )
 
         for direction, default_type, reverse in (("upstream", "READS_FROM", False), ("downstream", "READS_FROM", True)):
             for rel in (item.get("lineage") or {}).get(direction) or []:
@@ -394,6 +425,74 @@ def compile_graph(raw_nodes: list[dict[str, Any]]) -> tuple[dict[str, Any], dict
     return graph, catalog, lineage
 
 
+def compile_flows(raw_flows: list[dict[str, Any]], graph: dict[str, Any]) -> dict[str, Any]:
+    graph_node_ids = {node["id"] for node in graph["nodes"]}
+    graph_edges = {edge["id"]: edge for edge in graph["edges"]}
+    compiled: list[dict[str, Any]] = []
+
+    for flow in raw_flows:
+        flow_edges: list[dict[str, Any]] = []
+        flow_node_ids = set(flow.get("nodes") or [])
+        flow_edge_id_map: dict[str, str] = {}
+
+        for index, item in enumerate(flow.get("edges") or [], start=1):
+            base_edge_id = item.get("base_edge") or item.get("edge") or item.get("id")
+            base_edge = graph_edges.get(base_edge_id, {})
+            source = item.get("source") or base_edge.get("source")
+            target = item.get("target") or base_edge.get("target")
+            if not source or not target:
+                continue
+            flow_node_ids.update([source, target])
+            step = item.get("step") or index
+            flow_edge_id = item.get("flow_edge_id") or f"{flow['id']}.edge.{slug(str(step))}"
+            flow_edge_id_map[base_edge_id or flow_edge_id] = flow_edge_id
+            flow_edges.append({
+                "id": flow_edge_id,
+                "base_edge": base_edge_id,
+                "type": normalize_relation(item.get("relation") or base_edge.get("type") or "RELATED_TO"),
+                "source": source,
+                "target": target,
+                "step": step,
+                "label": item.get("label") or item.get("name") or normalize_relation(item.get("relation") or base_edge.get("type") or "RELATED_TO"),
+                "description": item.get("description") or base_edge.get("properties", {}).get("description", ""),
+                "lifecycle": item.get("lifecycle"),
+                "dependency": item.get("dependency"),
+                "sla": item.get("sla"),
+                "condition": item.get("condition"),
+                "constraints": item.get("constraints") or [],
+                "raw": item,
+                "base_raw": base_edge or None,
+            })
+
+        dependencies: list[dict[str, Any]] = []
+        for item in flow.get("edge_dependencies") or []:
+            dependencies.append({
+                "from": flow_edge_id_map.get(item.get("from"), item.get("from")),
+                "to": flow_edge_id_map.get(item.get("to"), item.get("to")),
+                "type": normalize_relation(item.get("type") or item.get("relation") or "PRECEDES"),
+                "description": item.get("description", ""),
+                "condition": item.get("condition", ""),
+            })
+
+        compiled.append({
+            "id": flow["id"],
+            "type": "flow",
+            "name": flow["name"],
+            "description": flow.get("description", ""),
+            "owner": flow.get("owner"),
+            "tags": flow.get("tags") or [],
+            "nodes": [node_id for node_id in flow_node_ids if node_id in graph_node_ids],
+            "edges": flow_edges,
+            "edge_dependencies": dependencies,
+            "evidence": flow.get("evidence") or [],
+            "verified": flow.get("verified"),
+            "source_file": flow.get("_source_file"),
+            "raw": flow,
+        })
+
+    return {"flows": compiled}
+
+
 def build_curated_views(graph: dict[str, Any]) -> dict[str, Any]:
     business_entities = [node["id"] for node in graph["nodes"] if node["type"] == "business_entity"]
     assets = [node["id"] for node in graph["nodes"] if node["type"] in {"table", "view"}]
@@ -425,13 +524,16 @@ def main() -> None:
     INDEX_DIR.mkdir(parents=True, exist_ok=True)
     FRONTEND_DIR.mkdir(parents=True, exist_ok=True)
     raw_nodes = load_yaml_files()
+    raw_flows = load_flow_files()
     graph, catalog, lineage = compile_graph(raw_nodes)
+    flows = compile_flows(raw_flows, graph)
     curated_views = build_curated_views(graph)
 
     (INDEX_DIR / "graph.json").write_text(json.dumps(graph, indent=2, ensure_ascii=False), encoding="utf-8")
     (INDEX_DIR / "catalog.json").write_text(json.dumps(catalog, indent=2, ensure_ascii=False), encoding="utf-8")
     (INDEX_DIR / "lineage.json").write_text(json.dumps(lineage, indent=2, ensure_ascii=False), encoding="utf-8")
     (INDEX_DIR / "views.json").write_text(json.dumps(curated_views, indent=2, ensure_ascii=False), encoding="utf-8")
+    (INDEX_DIR / "flows.json").write_text(json.dumps(flows, indent=2, ensure_ascii=False), encoding="utf-8")
 
     search = [
         {
@@ -454,7 +556,11 @@ def main() -> None:
         "window.CURATED_VIEWS = " + json.dumps(curated_views, indent=2, ensure_ascii=False) + ";\n",
         encoding="utf-8",
     )
-    print(f"Built {len(graph['nodes'])} nodes and {len(graph['edges'])} edges")
+    (FRONTEND_DIR / "flows-data.js").write_text(
+        "window.FLOW_DATA = " + json.dumps(flows, indent=2, ensure_ascii=False) + ";\n",
+        encoding="utf-8",
+    )
+    print(f"Built {len(graph['nodes'])} nodes, {len(graph['edges'])} edges, and {len(flows['flows'])} flows")
 
 
 if __name__ == "__main__":

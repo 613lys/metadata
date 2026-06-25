@@ -44,6 +44,15 @@ properties:
         expression:
     maps_to:
       - column.<schema>.<table>.<column>
+    related_nodes:
+      - id: business_entity.<entity>.<property>
+        relation:
+        description:
+        constraints:
+          - type:
+            description:
+            severity:
+            expression:
 
 mapped_assets:
   - id: table.<schema>.<table>
@@ -229,6 +238,35 @@ properties:
 ```
 
 Do not create an entity property for a purely technical table column such as `etl_batch_id`, `created_at` used only for ingestion, hash keys, soft-delete flags, or internal audit fields unless the business explicitly reasons about it.
+
+## Property-To-Property Relationships
+
+Use `properties[].related_nodes[]` for semantic relationships between business properties. Use this when the business meaning is between fields on two entities, not just between the entities as a whole.
+
+Common examples:
+
+```yaml
+properties:
+  - name: refund_request_id
+    semantic_role: identifier
+    related_nodes:
+      - id: business_entity.refund_request.refund_request_id
+        relation: REFERENCES
+        description: Refund Decision refund_request_id references the reviewed Refund Request.
+  - name: approved_amount
+    semantic_role: measure
+    related_nodes:
+      - id: business_entity.refund_request.requested_amount
+        relation: DEPENDS_ON
+        description: Approved amount is evaluated against the requested refund amount.
+        constraints:
+          - type: comparison
+            severity: high
+            description: Approved amount cannot exceed the requested amount.
+            expression: approved_amount <= refund_request.requested_amount
+```
+
+Use `properties[].maps_to[]` only for physical column mapping. Use `properties[].related_nodes[]` for business property references, derivations, reconciliations, and cross-entity constraints. Use `term` for definition.
 
 ## Glossary Mapping
 

@@ -862,6 +862,17 @@ window.GRAPH_DATA = {
       }
     },
     {
+      "id": "edge.business_entity.payment_refund.decision_id.REFERENCES.business_entity.refund_decision.decision_id",
+      "type": "REFERENCES",
+      "source": "business_entity.payment_refund.decision_id",
+      "target": "business_entity.refund_decision.decision_id",
+      "properties": {
+        "inferred": true,
+        "description": "Payment Refund decision_id references the approved Refund Decision.",
+        "source_field": "properties.related_nodes"
+      }
+    },
+    {
       "id": "edge.business_entity.payment_refund.CONTAINS.business_entity.payment_refund.refunded_amount",
       "type": "CONTAINS",
       "source": "business_entity.payment_refund",
@@ -892,6 +903,17 @@ window.GRAPH_DATA = {
         "inferred": true,
         "description": "refunded_amount maps to column.payments.payment_refund.refunded_amount.",
         "source_field": "properties.maps_to"
+      }
+    },
+    {
+      "id": "edge.business_entity.payment_refund.refunded_amount.RECONCILES_WITH.business_entity.refund_decision.approved_amount",
+      "type": "RECONCILES_WITH",
+      "source": "business_entity.payment_refund.refunded_amount",
+      "target": "business_entity.refund_decision.approved_amount",
+      "properties": {
+        "inferred": true,
+        "description": "Refunded amount should reconcile with the approved refund amount.",
+        "source_field": "properties.related_nodes"
       }
     },
     {
@@ -994,6 +1016,17 @@ window.GRAPH_DATA = {
       }
     },
     {
+      "id": "edge.business_entity.refund_decision.refund_request_id.REFERENCES.business_entity.refund_request.refund_request_id",
+      "type": "REFERENCES",
+      "source": "business_entity.refund_decision.refund_request_id",
+      "target": "business_entity.refund_request.refund_request_id",
+      "properties": {
+        "inferred": true,
+        "description": "Refund Decision refund_request_id references the reviewed Refund Request.",
+        "source_field": "properties.related_nodes"
+      }
+    },
+    {
       "id": "edge.business_entity.refund_decision.CONTAINS.business_entity.refund_decision.approved_amount",
       "type": "CONTAINS",
       "source": "business_entity.refund_decision",
@@ -1024,6 +1057,17 @@ window.GRAPH_DATA = {
         "inferred": true,
         "description": "approved_amount maps to column.support.refund_decision.approved_amount.",
         "source_field": "properties.maps_to"
+      }
+    },
+    {
+      "id": "edge.business_entity.refund_decision.approved_amount.DEPENDS_ON.business_entity.refund_request.requested_amount",
+      "type": "DEPENDS_ON",
+      "source": "business_entity.refund_decision.approved_amount",
+      "target": "business_entity.refund_request.requested_amount",
+      "properties": {
+        "inferred": true,
+        "description": "Approved amount is evaluated against the requested refund amount.",
+        "source_field": "properties.related_nodes"
       }
     },
     {
@@ -1153,6 +1197,17 @@ window.GRAPH_DATA = {
         "inferred": true,
         "description": "order_id maps to column.support.refund_request.order_id.",
         "source_field": "properties.maps_to"
+      }
+    },
+    {
+      "id": "edge.business_entity.refund_request.order_id.REFERENCES.business_entity.customer_order.order_id",
+      "type": "REFERENCES",
+      "source": "business_entity.refund_request.order_id",
+      "target": "business_entity.customer_order.order_id",
+      "properties": {
+        "inferred": true,
+        "description": "Refund Request order_id references the Customer Order order_id.",
+        "source_field": "properties.related_nodes"
       }
     },
     {

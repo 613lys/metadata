@@ -19,6 +19,10 @@ properties:
     term: term.order_identifier
     maps_to:
       - column.support.refund_request.order_id
+    related_nodes:
+      - id: business_entity.customer_order.order_id
+        relation: REFERENCES
+        description: Refund Request order_id references the Customer Order order_id.
   - name: requested_amount
     description: Amount requested by the customer.
     semantic_role: measure

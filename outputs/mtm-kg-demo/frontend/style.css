@@ -30,7 +30,8 @@ body {
 }
 
 button,
-input {
+input,
+select {
   font: inherit;
 }
 
@@ -67,7 +68,9 @@ button.secondary {
   width: 100%;
 }
 
-input[type="search"] {
+input[type="search"],
+input[type="text"],
+select {
   width: 100%;
   height: 38px;
   border: 1px solid var(--line);
@@ -78,7 +81,9 @@ input[type="search"] {
   color: var(--text);
 }
 
-input[type="search"]:focus {
+input[type="search"]:focus,
+input[type="text"]:focus,
+select:focus {
   border-color: #8fb3ff;
   box-shadow: 0 0 0 3px rgba(31, 111, 235, .12);
 }
@@ -175,7 +180,7 @@ p {
 
 .catalog-page {
   display: grid;
-  grid-template-columns: 300px minmax(520px, 1fr) 430px;
+  grid-template-columns: 300px minmax(720px, 1fr) 430px;
 }
 
 .graph-page {
@@ -238,6 +243,30 @@ p {
   padding: 4px 8px;
   border-radius: 999px;
   font-size: 11px;
+}
+
+.filter-chip.concept-chip {
+  border-color: #bfdbfe;
+  color: #1d4ed8;
+  background: #eff6ff;
+}
+
+.filter-chip.concept-chip.active {
+  border-color: #2563eb;
+  background: #2563eb;
+  color: #fff;
+}
+
+.filter-chip.physical-chip {
+  border-color: #bbf7d0;
+  color: #15803d;
+  background: #f0fdf4;
+}
+
+.filter-chip.physical-chip.active {
+  border-color: #16a34a;
+  background: #16a34a;
+  color: #fff;
 }
 
 .filter-chip small {
@@ -341,6 +370,57 @@ p {
   line-height: 1.35;
 }
 
+.scenario-controls {
+  display: grid;
+  gap: 8px;
+}
+
+.scenario-section {
+  margin-top: 14px;
+}
+
+.scenario-actions {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.hidden-node-list {
+  display: grid;
+  gap: 7px;
+  margin-bottom: 8px;
+}
+
+.hidden-node-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 8px;
+  padding: 8px;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  background: #fff;
+}
+
+.hidden-node-row strong,
+.hidden-node-row small {
+  display: block;
+  overflow-wrap: anywhere;
+}
+
+.hidden-node-row small {
+  margin-top: 2px;
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.hidden-node-row button {
+  min-height: 24px;
+  padding: 3px 7px;
+  border-radius: 999px;
+  font-size: 11px;
+}
+
 .catalog-results-shell {
   min-width: 0;
   min-height: 0;
@@ -377,7 +457,7 @@ p {
   min-height: 0;
   overflow: hidden;
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 14px;
   padding: 14px;
 }
@@ -399,6 +479,7 @@ p {
 
 .result-item,
 .edge-item,
+.flow-item,
 .mini-card {
   border: 1px solid var(--line);
   border-radius: 7px;
@@ -408,7 +489,8 @@ p {
 }
 
 .result-item,
-.edge-item {
+.edge-item,
+.flow-item {
   position: relative;
   padding-right: 74px;
 }
@@ -417,9 +499,26 @@ p {
 .result-item.selected,
 .edge-item:hover,
 .edge-item.selected,
+.flow-item:hover,
+.flow-item.selected,
 .mini-card:hover {
   border-color: var(--accent);
   box-shadow: 0 0 0 3px rgba(31, 111, 235, .10);
+}
+
+.flow-result-heading {
+  display: grid;
+  gap: 6px;
+}
+
+.flow-result-heading strong {
+  overflow-wrap: anywhere;
+  font-size: 13px;
+}
+
+.flow-pill {
+  color: #b45309;
+  background: #fff7ed;
 }
 
 .result-row {
@@ -429,14 +528,6 @@ p {
 }
 
 .result-dot,
-.node-dot {
-  width: 10px;
-  height: 10px;
-  margin-top: 3px;
-  border-radius: 50%;
-  flex: 0 0 auto;
-}
-
 .result-name,
 .mini-card strong {
   display: block;
@@ -513,6 +604,7 @@ p {
 
 .type-pill,
 .edge-pill,
+.step-pill,
 .tag-pill {
   display: inline-flex;
   align-items: center;
@@ -525,6 +617,11 @@ p {
   font-size: 11px;
   font-weight: 800;
   overflow-wrap: anywhere;
+}
+
+.step-pill {
+  color: #b45309;
+  background: #fff7ed;
 }
 
 .tag-list {
@@ -718,6 +815,32 @@ p {
   pointer-events: auto;
 }
 
+.graph-node::before {
+  content: "";
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 5px;
+  background: #64748b;
+}
+
+.graph-node.concept-node {
+  border-color: #b9d2ff;
+  background: linear-gradient(90deg, #f4f8ff 0%, #ffffff 58%);
+}
+
+.graph-node.concept-node::before {
+  background: #2563eb;
+}
+
+.graph-node.db-node {
+  border-color: #a9d9b8;
+  background: linear-gradient(90deg, #f3fbf5 0%, #ffffff 58%);
+}
+
+.graph-node.db-node::before {
+  background: #159947;
+}
+
 .graph-node.dragging {
   cursor: grabbing;
   border-color: var(--accent);
@@ -753,7 +876,8 @@ p {
 }
 
 .node-main {
-  padding: 11px;
+  position: relative;
+  padding: 13px 34px 11px 15px;
 }
 
 .node-top {
@@ -763,11 +887,50 @@ p {
   gap: 8px;
 }
 
-.node-title {
+.node-actions {
   display: flex;
-  align-items: flex-start;
-  gap: 8px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 5px;
+  flex: 0 0 auto;
+}
+
+.node-title {
   min-width: 0;
+}
+
+.node-title-text {
+  min-width: 0;
+}
+
+.node-kind-badge {
+  display: inline-flex;
+  align-items: center;
+  width: fit-content;
+  max-width: 100%;
+  margin-bottom: 4px;
+  padding: 2px 7px;
+  border-radius: 999px;
+  font-size: 10px;
+  font-weight: 850;
+  line-height: 1.2;
+  text-transform: uppercase;
+  letter-spacing: 0;
+}
+
+.node-kind-badge.concept {
+  color: #1d4ed8;
+  background: #dbeafe;
+}
+
+.node-kind-badge.db {
+  color: #047857;
+  background: #d9fbe8;
+}
+
+.node-kind-badge.other {
+  color: #475467;
+  background: #eef2f7;
 }
 
 .node-title strong {
@@ -792,10 +955,43 @@ p {
   border-radius: 999px;
 }
 
+.hide-node-button {
+  position: absolute;
+  top: 7px;
+  right: 7px;
+  display: inline-grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  min-height: 22px;
+  padding: 0;
+  border-radius: 999px;
+  color: #667085;
+  border-color: transparent;
+  background: transparent;
+  font-size: 18px;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.hide-node-button:hover {
+  color: #b42318;
+  border-color: #f4b5ad;
+  background: #fff5f5;
+}
+
 .field-list {
   border-top: 1px solid var(--line-soft);
   background: #fbfcfe;
   padding: 6px;
+}
+
+.concept-node .field-list {
+  background: #f7faff;
+}
+
+.db-node .field-list {
+  background: #f6fbf7;
 }
 
 .field-row {
@@ -894,6 +1090,11 @@ p {
   color: var(--muted);
   background: #fbfcfe;
   font-size: 12px;
+}
+
+.empty-state.compact {
+  padding: 9px;
+  font-size: 11px;
 }
 
 @media (max-width: 1180px) {

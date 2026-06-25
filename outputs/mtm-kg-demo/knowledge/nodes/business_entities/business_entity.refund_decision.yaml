@@ -18,12 +18,20 @@ properties:
     semantic_role: identifier
     maps_to:
       - column.support.refund_decision.refund_request_id
+    related_nodes:
+      - id: business_entity.refund_request.refund_request_id
+        relation: REFERENCES
+        description: Refund Decision refund_request_id references the reviewed Refund Request.
   - name: approved_amount
     description: Amount approved for payment refund.
     semantic_role: measure
     term: term.refund_amount
     maps_to:
       - column.support.refund_decision.approved_amount
+    related_nodes:
+      - id: business_entity.refund_request.requested_amount
+        relation: DEPENDS_ON
+        description: Approved amount is evaluated against the requested refund amount.
     constraints:
       - type: comparison
         severity: high

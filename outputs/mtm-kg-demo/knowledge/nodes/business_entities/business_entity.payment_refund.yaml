@@ -18,12 +18,20 @@ properties:
     semantic_role: identifier
     maps_to:
       - column.payments.payment_refund.decision_id
+    related_nodes:
+      - id: business_entity.refund_decision.decision_id
+        relation: REFERENCES
+        description: Payment Refund decision_id references the approved Refund Decision.
   - name: refunded_amount
     description: Amount sent to the payment provider for refund.
     semantic_role: measure
     term: term.refund_amount
     maps_to:
       - column.payments.payment_refund.refunded_amount
+    related_nodes:
+      - id: business_entity.refund_decision.approved_amount
+        relation: RECONCILES_WITH
+        description: Refunded amount should reconcile with the approved refund amount.
   - name: payment_status
     description: Processor status of the refund transaction.
     semantic_role: status
