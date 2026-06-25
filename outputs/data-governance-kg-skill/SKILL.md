@@ -145,7 +145,7 @@ Load these files progressively when creating or modifying YAML:
 - Controlled relation vocabulary: `references/relation-types.md`
 - Graph build rules: `references/graph-json-build.md`
 
-Only load `references/osi-generation-practices.md` if the user explicitly asks to convert this project to OSI or compare against OSI. OSI is not the default storage format for the current implementation.
+Load `references/osi-generation-practices.md` when the user explicitly asks to convert this project to OSI, compare against OSI, or generate an OSI-based storage/UI variant with EntityType and ValueType concepts. OSI is not the default storage format for the current implementation. When OSI is selected, follow the hard constraints in that reference before applying the older business entity/term model.
 
 ## Node Types
 

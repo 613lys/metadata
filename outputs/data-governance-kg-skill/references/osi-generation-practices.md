@@ -102,6 +102,50 @@ Use the repo's existing YAML shape if it already has one. Keep IDs stable and de
    - Use flow `step` for order and `edge_dependencies[]` for dependencies between flow edges.
    - Use flow edge `source` and `target` for business display direction.
 
+## Hard Constraints
+
+Apply these constraints when generating OSI YAML, graph indexes, or UI behavior:
+
+1. Do not model reports as EntityTypes unless the report is truly a business object in the domain. Use `RegulatoryRequirement` for semantic reporting obligations and `ReportImplementation` for physical delivery.
+
+2. Keep reporting requirements and implementations separate.
+   - `RegulatoryRequirement` states what semantic data is required.
+   - `ReportImplementation` states how output datasets and fields are produced.
+   - The implementation is not the bridge between EntityTypes and tables; semantic-to-physical mapping belongs in semantic models and ontology mappings.
+
+3. Requirement fields are the only reporting-layer objects that connect to EntityType value fields.
+   - Emit `REQUIRES_SEMANTIC_FIELD` from a requirement field to the EntityType field it requires.
+   - Do not connect a requirement to every field on an EntityType. Connect only the specific fields in the regulatory scope.
+
+4. Implementation fields must connect to requirement fields and physical fields, not directly to EntityType value fields.
+   - Emit `IMPLEMENTS_REQUIREMENT_FIELD` from an implementation field to the requirement field named by `requirement_field`.
+   - Emit `MATERIALIZES_FIELD` from an implementation field to the output dataset column.
+   - Emit `READS_FIELD` from an implementation field to source columns.
+   - Never emit `IMPLEMENTS_SEMANTIC_FIELD`; `semantic_reference` on implementation fields is descriptive metadata only.
+
+5. Every implementation output field should carry a concrete expression.
+   - Use the same expression shape as semantic model fields: `expression.dialects[].dialect` and `expression.dialects[].expression`.
+   - Parse `dataset.column` references from expressions and add `READS_FIELD` edges to those physical columns.
+   - If a field is a direct copy, still write a direct expression such as `trades.trade_id`.
+
+6. Shared ValueTypes should produce derived field links.
+   - ValueTypes may exist independently in YAML but should normally render as child fields under EntityTypes.
+   - If two EntityType fields use the same ValueType, derive a `SHARES_VALUE_TYPE` edge between those field rows even when YAML does not explicitly define it.
+
+7. Default graph visibility must be analytical, not a raw dump.
+   - Hide container nodes such as `ontology`, `semantic_model`, and `ontology_mapping` by default.
+   - Render ValueType roles, table columns, requirement items, and implementation output bindings as collapsed child rows under their parent nodes.
+
+8. Expanding a node must not draw all child field edges.
+   - Draw field-level edges only after the user selects a concrete child field row.
+   - Do not render labels on field-level edges in the graph. Field edge type, name, and semantic details should appear only after the user clicks the edge and reads the profile.
+   - Selecting a requirement field may expand related EntityType fields and draw only that field's semantic edges.
+   - Selecting an implementation field may expand related requirement and dataset fields and draw only that field's implementation edges.
+
+9. Graph edges and field-level edges must attach to the left or right side of nodes and rows. Do not anchor edges to top or bottom edges.
+
+10. The right-side profile must update for node clicks, graph edge clicks, and child field clicks. Profiles should expose semantic metadata, expressions, constraints, mappings, and evidence where available.
+
 ## Mapping Levels
 
 Use the narrowest mapping level that matches the evidence:
@@ -186,6 +230,17 @@ report_implementations:
             semantic_reference: Trade.fair_value_amount
             requirement_field: fair_value_amount
             source_field: trades.fair_value_amount
+            expression:
+              dialects:
+                - dialect: ANSI_SQL
+                  expression: trades.fair_value_amount
+          - name: exposure_amount_report_currency
+            semantic_reference: exposure_amount_report_currency
+            requirement_field: exposure_amount_report_currency
+            expression:
+              dialects:
+                - dialect: ANSI_SQL
+                  expression: trades.fair_value_amount * fx_rates.rate_value
     source_fields:
       - trades.trade_id
       - trades.fair_value_amount
@@ -195,13 +250,16 @@ Compile implementation fields into child nodes and connect them with:
 
 ```text
 IMPLEMENTS                implementation -> requirement
+IMPLEMENTS_REQUIREMENT_FIELD implementation field -> requirement field
 MATERIALIZED_AS           implementation -> output dataset
 READS_FROM                implementation -> source dataset
 MATERIALIZES_FIELD        implementation field -> output column
 READS_FIELD               implementation field -> source column
 ```
 
-Keep `semantic_reference` and `requirement_field` on implementation fields as descriptive metadata only. Do not draw implementation field edges directly to EntityType value fields; that semantic connection belongs to the requirement field.
+Keep `semantic_reference` on implementation fields as descriptive metadata only. Use `requirement_field` to draw `IMPLEMENTS_REQUIREMENT_FIELD` to the requirement item. Do not draw implementation field edges directly to EntityType value fields; that semantic connection belongs to the requirement field.
+
+Every implementation output field should have a concrete expression in the same dialect shape used by semantic model fields. Parse `dataset.column` references from those expressions and add `READS_FIELD` edges to the physical columns they use.
 
 ## Flow Pattern
 
@@ -298,8 +356,9 @@ Default child rows should be collapsed. When expanded:
 - Implementation fields show output/source bindings.
 - Do not draw every field-level edge just because a node is expanded.
 - Field-level edges should draw only when the user selects a concrete child field row.
+- Field-level edges should not show labels on the graph canvas; show the edge name/type in the right-side profile after edge click.
 - Selecting a requirement field should expand the related EntityType field parent and draw only that requirement field's edges to the corresponding EntityType value field rows.
-- Selecting an implementation field should expand the related dataset field parents and draw only that implementation field's edges to output/source column rows.
+- Selecting an implementation field should expand the related requirement and dataset field parents, then draw only that implementation field's edges to its requirement item and output/source column rows.
 - All graph and field edge anchors should attach to the left or right side of nodes/field rows, never to top or bottom edges.
 
 The right-side profile must update for node clicks, edge clicks, and child field clicks.
@@ -332,7 +391,14 @@ field profile appears
 requirement starts collapsed
 requirement Show reveals requirement fields without drawing field-level edges
 clicking one requirement field draws only that field's edge(s) to EntityType fields
+clicking one requirement field can also reveal implementation fields that satisfy it
 implementation fields map to dataset field level
+clicking one implementation field draws edges only to its requirement item, output column, and source columns
+implementation field profile shows its expression
+graph index contains IMPLEMENTS_REQUIREMENT_FIELD edges
+graph index contains no IMPLEMENTS_SEMANTIC_FIELD edges
+same ValueType usage derives SHARES_VALUE_TYPE between EntityType field rows
+field-level edges attach left/right, not top/bottom
 flow catalog result appears when flow YAML exists
 flow graph opens and shows flow edge labels
 flow edge profile shows flow metadata and base edge metadata

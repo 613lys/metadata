@@ -989,6 +989,7 @@ function graphNeighborhood() {
 
   const traversalEdges = parentEdges().filter(edge => {
     if (!graphNodeVisible(edge.source) || !graphNodeVisible(edge.target)) return false;
+    if (!edgePassesTypeFilter(edge, graphState.edgeTypes)) return false;
     if (!graphNodeTypeAllowed(edge.source) || !graphNodeTypeAllowed(edge.target)) return false;
     if (tagFilterIsActive(graphState.tags)) {
       const tagPool = [...tagsFor(edge.source), ...tagsFor(edge.target)];
@@ -1043,7 +1044,6 @@ function graphNeighborhood() {
 
   const visibleEdges = traversalEdges.filter(edge => {
     if (!nodeSet.has(edge.source) || !nodeSet.has(edge.target)) return false;
-    if (!edgePassesTypeFilter(edge, graphState.edgeTypes)) return false;
     return true;
   });
   const visibleChildEdges = selectedChildEdges.filter(edge => {
