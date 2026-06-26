@@ -322,6 +322,23 @@ function edgeRelationships(edge) {
   return edge.relationships?.length ? edge.relationships : [edge];
 }
 
+function focusContextRelationships(edge) {
+  const relationships = edgeRelationships(edge);
+  const focus = graphState.focusId;
+  const outgoing = relationships.filter(item => item.source === focus || item.sourceOriginal === focus);
+  if (outgoing.length) return outgoing;
+  const incoming = relationships.filter(item => item.target === focus || item.targetOriginal === focus);
+  if (incoming.length) return incoming;
+  return relationships;
+}
+
+function relationshipTypesLabel(relationships) {
+  const types = [...new Set(relationships.map(item => item.type).filter(Boolean))];
+  if (!types.length) return 'RELATED_TO';
+  if (types.length <= 2) return types.join(' / ');
+  return `${types.slice(0, 2).join(' / ')} +${types.length - 2}`;
+}
+
 function edgePassesTypeFilter(edge, selectedTypes) {
   return edgeRelationships(edge).some(item => selectedTypes.has(item.type));
 }
@@ -1588,7 +1605,7 @@ function edgeLabel(edge) {
       edge.flowEdge.label || edge.type,
     ].filter(Boolean).join(" · ");
   }
-  if (edgeRelationships(edge).length > 1) return `${edgeRelationships(edge).length} relationships`;
+  if (edgeRelationships(edge).length > 1) return relationshipTypesLabel(focusContextRelationships(edge));
   return edge.type;
 }
 
